@@ -1,0 +1,11 @@
+{
+  "name": "@obvia/collections",
+  "version": "0.1.0",
+  "description": "Immutable, fluent and deeply typed collections for TypeScript.",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
