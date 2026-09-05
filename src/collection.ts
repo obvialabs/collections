@@ -10,6 +10,7 @@ import {
 import type {
     CollectionPath,
     CollectionPathValue,
+    FlattenValue,
 } from "./types.js"
 
 /**
@@ -308,6 +309,55 @@ implements Iterable<[TKey, TValue]> {
         }
 
         return new Collection(entries)
+    }
+
+    /** Maps every item and flattens one iterable layer into numeric keys. */
+    public flatMap<TMapped>(
+        callback: (value: TValue, key: TKey, collection: this) => Iterable<TMapped>,
+    ): Collection<number, TMapped> {
+        const values: TMapped[] = []
+
+        for (const [key, value] of this.#store) {
+            values.push(...callback(value, key, this))
+        }
+
+        return new Collection(values.map((value, index) => [index, value] as const))
+    }
+
+    /** Flattens iterable collection values by the requested depth. */
+    public flatten(depth: number = Number.POSITIVE_INFINITY): Collection<number, unknown> {
+        if (depth < 0 || Number.isNaN(depth)) {
+            throw new RangeError("Collection flatten depth must be zero or greater.")
+        }
+
+        const output: unknown[] = []
+
+        const visit = (value: unknown, level: number): void => {
+            if (
+                level > 0
+                && value !== null
+                && typeof value !== "string"
+                && typeof (value as { [Symbol.iterator]?: unknown })[Symbol.iterator] === "function"
+            ) {
+                for (const nested of value as Iterable<unknown>) {
+                    visit(nested, level - 1)
+                }
+                return
+            }
+
+            output.push(value)
+        }
+
+        for (const value of this.#store.values()) {
+            visit(value, depth)
+        }
+
+        return new Collection(output.map((value, index) => [index, value] as const))
+    }
+
+    /** Collapses one iterable layer from collection values. */
+    public collapse(): Collection<number, FlattenValue<TValue>> {
+        return this.flatten(1) as Collection<number, FlattenValue<TValue>>
     }
 
     /** Maps every value while preserving the original collection keys. */

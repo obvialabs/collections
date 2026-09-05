@@ -40,3 +40,7 @@ export type CollectionPathValue<
         ? TValue[TPath]
         : never
 
+/** Resolves one iterable/array layer from a collection value. */
+export type FlattenValue<TValue> = TValue extends Iterable<infer TItem>
+    ? TItem
+    : TValue

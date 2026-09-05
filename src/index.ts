@@ -9,6 +9,7 @@ export type {
     AtomicValue,
     CollectionPath,
     CollectionPathValue,
+    FlattenValue,
 } from "./types.js"
 
 export {
