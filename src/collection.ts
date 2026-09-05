@@ -140,6 +140,28 @@ implements Iterable<[TKey, TValue]> {
         return this.#store.has(key)
     }
 
+    /** Returns the key for the first matching value or predicate. */
+    public search(value: TValue): TKey | undefined
+
+    /** Returns the key for the first value matching a predicate. */
+    public search(
+        predicate: (value: TValue, key: TKey) => boolean,
+    ): TKey | undefined
+
+    public search(
+        valueOrPredicate: TValue | ((value: TValue, key: TKey) => boolean),
+    ): TKey | undefined {
+        for (const [key, value] of this.#store) {
+            const matches = typeof valueOrPredicate === "function"
+                ? (valueOrPredicate as (value: TValue, key: TKey) => boolean)(value, key)
+                : Object.is(value, valueOrPredicate)
+
+            if (matches) return key
+        }
+
+        return undefined
+    }
+
     /** Determines whether any of the provided collection keys exist. */
     public hasAny(keys: Iterable<TKey>): boolean {
         for (const key of keys) {
