@@ -1,4 +1,4 @@
-import { Collection } from "./collection"
+import { Collection } from "./collection.js"
 
 /** Creates an empty collection. */
 export function collect(): Collection<number, unknown>

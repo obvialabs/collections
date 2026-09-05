@@ -1,68 +1,16 @@
-/**
- * Primitive values that should not be traversed while resolving nested paths.
- */
-type AtomicValue =
-    | bigint
-    | boolean
-    | Date
-    | Function
-    | null
-    | number
-    | RegExp
-    | string
-    | symbol
-    | undefined
-
-/**
- * Resolves valid dot-notation paths for an object value.
- *
- * Arrays and other atomic values are treated as terminal values so collection
- * helpers do not attempt to infer paths through framework or runtime objects.
- */
-export type CollectionPath<TValue> = TValue extends AtomicValue
-    ? never
-    : TValue extends readonly unknown[]
-        ? never
-        : {
-            [TKey in Extract<keyof TValue, string>]:
-                TValue[TKey] extends AtomicValue | readonly unknown[]
-                    ? TKey
-                    : TKey | `${TKey}.${CollectionPath<TValue[TKey]>}`
-        }[Extract<keyof TValue, string>]
-
-/**
- * Resolves the value type represented by a dot-notation collection path.
- */
-export type CollectionPathValue<
-    TValue,
-    TPath extends string,
-> = TPath extends `${infer THead}.${infer TTail}`
-    ? THead extends keyof TValue
-        ? CollectionPathValue<TValue[THead], TTail>
-        : never
-    : TPath extends keyof TValue
-        ? TValue[TPath]
-        : never
-
-/**
- * Error thrown when a collection operation requires an item but none exists.
- */
-export class CollectionItemNotFoundError extends Error {
-    public constructor(message: string = "Collection item was not found.") {
-        super(message)
-        this.name = "CollectionItemNotFoundError"
-    }
-}
-
-/**
- * Error thrown when `sole()` resolves more than one matching collection item.
- */
-export class CollectionMultipleItemsError extends Error {
-    public constructor(message: string = "Collection contains more than one matching item.") {
-        super(message)
-        this.name = "CollectionMultipleItemsError"
-    }
-}
+import {
+    CollectionItemNotFoundError,
+    CollectionMultipleItemsError,
+} from "./errors.js"
+import {
+    assertPositiveInteger,
+    compareValues,
+    getPathValue,
+} from "./helpers.js"
+import type {
+    CollectionPath,
+    CollectionPathValue,
+} from "./types.js"
 
 /**
  * Immutable, fluent, strongly typed collection.
@@ -1046,50 +994,5 @@ implements Iterable<[TKey, TValue]> {
     /** Returns an iterator over collection key/value entries. */
     public [Symbol.iterator](): Iterator<[TKey, TValue]> {
         return this.#store[Symbol.iterator]()
-    }
-}
-
-/** Resolves a dot-notation value from an object. */
-function getPathValue<
-    TValue,
-    TPath extends CollectionPath<TValue>,
->(
-    value: TValue,
-    path: TPath,
-): CollectionPathValue<TValue, TPath> {
-    let current: unknown = value
-
-    for (const segment of String(path).split(".")) {
-        if (current === null || current === undefined) {
-            return undefined as CollectionPathValue<TValue, TPath>
-        }
-
-        current = (current as Record<string, unknown>)[segment]
-    }
-
-    return current as CollectionPathValue<TValue, TPath>
-}
-
-/** Compares common JavaScript scalar values in a deterministic order. */
-function compareValues(left: unknown, right: unknown): number {
-    if (Object.is(left, right)) return 0
-    if (left === undefined || left === null) return -1
-    if (right === undefined || right === null) return 1
-
-    if (typeof left === "number" && typeof right === "number") {
-        return left - right
-    }
-
-    if (left instanceof Date && right instanceof Date) {
-        return left.getTime() - right.getTime()
-    }
-
-    return String(left).localeCompare(String(right))
-}
-
-/** Validates collection size/step arguments. */
-function assertPositiveInteger(value: number, label: string): void {
-    if (!Number.isInteger(value) || value <= 0) {
-        throw new RangeError(`${label} must be a positive integer.`)
     }
 }

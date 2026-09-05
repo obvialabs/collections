@@ -1,10 +1,15 @@
+export { Collection } from "./collection.js"
+
 export {
-    Collection,
     CollectionItemNotFoundError,
     CollectionMultipleItemsError,
-    type CollectionPath,
-    type CollectionPathValue,
-} from "./collection"
+} from "./errors.js"
+
+export type {
+    AtomicValue,
+    CollectionPath,
+    CollectionPathValue,
+} from "./types.js"
 
 export {
     createCollection,
@@ -12,6 +17,6 @@ export {
     type CollectionItem,
     type CollectionItems,
     type DefinedCollection,
-} from "./create-collection"
+} from "./create-collection.js"
 
-export { collect } from "./collect"
+export { collect } from "./collect.js"

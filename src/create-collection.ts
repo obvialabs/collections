@@ -1,4 +1,4 @@
-import { Collection } from "./collection"
+import { Collection } from "./collection.js"
 
 /** Represents a generic keyed collection definition. */
 export type CollectionDefinition = Record<string, object>
