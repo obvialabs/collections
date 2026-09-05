@@ -66,6 +66,11 @@ implements Iterable<[TKey, TValue]> {
         return [...this.#store.values()]
     }
 
+    /** Returns all collection values in their current order. */
+    public all(): readonly TValue[] {
+        return this.items()
+    }
+
     /** Returns all collection keys in their current order. */
     public keys(): readonly TKey[] {
         return [...this.#store.keys()]
