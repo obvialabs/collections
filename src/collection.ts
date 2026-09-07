@@ -785,6 +785,26 @@ implements Iterable<[TKey, TValue]> {
         return new Collection([...this.#store.entries()].reverse())
     }
 
+    /** Returns one random collection value. */
+    public random(): TValue | undefined
+
+    /** Returns a numerically keyed collection containing random values. */
+    public random(count: number): Collection<number, TValue>
+
+    public random(count?: number): TValue | Collection<number, TValue> | undefined {
+        if (count === undefined) {
+            if (this.empty()) return undefined
+            const index = Math.floor(Math.random() * this.count())
+            return this.items()[index]
+        }
+
+        if (!Number.isInteger(count) || count < 0) {
+            throw new RangeError("Collection random count must be a non-negative integer.")
+        }
+
+        return this.shuffle().take(count).values()
+    }
+
     /** Randomizes the collection order while preserving keys. */
     public shuffle(): Collection<TKey, TValue> {
         const entries = [...this.#store.entries()]
