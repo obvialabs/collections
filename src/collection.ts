@@ -919,14 +919,26 @@ implements Iterable<[TKey, TValue]> {
         )
     }
 
+    /** Counts items grouped by a nested value path. */
+    public countBy<TPath extends CollectionPath<TValue>>(
+        path: TPath,
+    ): Collection<CollectionPathValue<TValue, TPath>, number>
+
     /** Counts items grouped by a callback result. */
     public countBy<TGroupKey>(
         callback: (value: TValue, key: TKey) => TGroupKey,
+    ): Collection<TGroupKey, number>
+
+    public countBy<TGroupKey>(
+        selector: CollectionPath<TValue> | ((value: TValue, key: TKey) => TGroupKey),
     ): Collection<TGroupKey, number> {
         const counts = new Map<TGroupKey, number>()
 
         for (const [key, value] of this.#store) {
-            const groupKey = callback(value, key)
+            const groupKey = typeof selector === "function"
+                ? selector(value, key)
+                : getPathValue(value, selector) as TGroupKey
+
             counts.set(groupKey, (counts.get(groupKey) ?? 0) + 1)
         }
 
