@@ -737,6 +737,35 @@ implements Iterable<[TKey, TValue]> {
         return new Collection(windows)
     }
 
+    /** Splits the collection into approximately equal groups. */
+    public split(groups: number): Collection<number, Collection<TKey, TValue>> {
+        assertPositiveInteger(groups, "Collection split groups")
+
+        if (this.empty()) return new Collection()
+
+        const entries = [...this.#store.entries()]
+        const size = Math.ceil(entries.length / groups)
+        return this.chunk(size)
+    }
+
+    /** Pads the collection values to the requested absolute size. */
+    public pad<TPad>(
+        size: number,
+        value: TPad,
+    ): Collection<number, TValue | TPad> {
+        const values: Array<TValue | TPad> = [...this.#store.values()]
+        const target = Math.abs(Math.trunc(size))
+        const missing = Math.max(0, target - values.length)
+
+        if (size >= 0) {
+            values.push(...Array<TPad>(missing).fill(value))
+        } else {
+            values.unshift(...Array<TPad>(missing).fill(value))
+        }
+
+        return new Collection(values.map((item, index) => [index, item] as const))
+    }
+
     /** Partitions the collection into matching and rejected collections. */
     public partition(
         predicate: (value: TValue, key: TKey) => boolean,
