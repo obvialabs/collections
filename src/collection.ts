@@ -595,6 +595,64 @@ implements Iterable<[TKey, TValue]> {
         return false
     }
 
+    /** Takes items until a predicate matches, excluding the matching item. */
+    public takeUntil(
+        predicate: (value: TValue, key: TKey) => boolean,
+    ): Collection<TKey, TValue> {
+        const entries: Array<readonly [TKey, TValue]> = []
+
+        for (const [key, value] of this.#store) {
+            if (predicate(value, key)) break
+            entries.push([key, value])
+        }
+
+        return new Collection(entries)
+    }
+
+    /** Takes items while a predicate continues to return true. */
+    public takeWhile(
+        predicate: (value: TValue, key: TKey) => boolean,
+    ): Collection<TKey, TValue> {
+        const entries: Array<readonly [TKey, TValue]> = []
+
+        for (const [key, value] of this.#store) {
+            if (!predicate(value, key)) break
+            entries.push([key, value])
+        }
+
+        return new Collection(entries)
+    }
+
+    /** Skips items until a predicate matches and includes the matching item. */
+    public skipUntil(
+        predicate: (value: TValue, key: TKey) => boolean,
+    ): Collection<TKey, TValue> {
+        const entries: Array<readonly [TKey, TValue]> = []
+        let accepting = false
+
+        for (const [key, value] of this.#store) {
+            if (!accepting && predicate(value, key)) accepting = true
+            if (accepting) entries.push([key, value])
+        }
+
+        return new Collection(entries)
+    }
+
+    /** Skips items while a predicate returns true. */
+    public skipWhile(
+        predicate: (value: TValue, key: TKey) => boolean,
+    ): Collection<TKey, TValue> {
+        const entries: Array<readonly [TKey, TValue]> = []
+        let accepting = false
+
+        for (const [key, value] of this.#store) {
+            if (!accepting && !predicate(value, key)) accepting = true
+            if (accepting) entries.push([key, value])
+        }
+
+        return new Collection(entries)
+    }
+
     /** Returns a collection containing only the requested keys. */
     public only(keys: Iterable<TKey>): Collection<TKey, TValue> {
         const accepted = new Set(keys)
