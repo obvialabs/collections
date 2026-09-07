@@ -877,6 +877,18 @@ implements Iterable<[TKey, TValue]> {
         return this.sortBy(selector as (value: TValue, key: TKey) => TComparable).reverse()
     }
 
+    /** Sorts collection items by their keys in ascending order. */
+    public sortKeys(): Collection<TKey, TValue> {
+        return new Collection(
+            [...this.#store.entries()].sort(([left], [right]) => compareValues(left, right)),
+        )
+    }
+
+    /** Sorts collection items by their keys in descending order. */
+    public sortKeysDesc(): Collection<TKey, TValue> {
+        return this.sortKeys().reverse()
+    }
+
     /** Groups collection items by a nested value path. */
     public groupBy<TPath extends CollectionPath<TValue>>(
         path: TPath,
