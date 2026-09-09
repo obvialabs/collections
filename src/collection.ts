@@ -1014,6 +1014,32 @@ implements Iterable<[TKey, TValue]> {
         return new Collection(result)
     }
 
+    /** Merges entries, replacing existing values that use the same key. */
+    public merge<TMergeKey, TMergeValue>(
+        entries: Iterable<readonly [TMergeKey, TMergeValue]>,
+    ): Collection<TKey | TMergeKey, TValue | TMergeValue> {
+        const result = new Map<TKey | TMergeKey, TValue | TMergeValue>(
+            this.#store as ReadonlyMap<TKey | TMergeKey, TValue | TMergeValue>,
+        )
+
+        for (const [key, value] of entries) {
+            result.set(key, value)
+        }
+
+        return new Collection(result)
+    }
+
+    /** Replaces only existing entries that use matching keys. */
+    public replace(entries: Iterable<readonly [TKey, TValue]>): Collection<TKey, TValue> {
+        const result = new Map(this.#store)
+
+        for (const [key, value] of entries) {
+            if (result.has(key)) result.set(key, value)
+        }
+
+        return new Collection(result)
+    }
+
     /** Returns a new collection containing the provided key/value pair. */
     public with<TNewKey, TNewValue>(
         key: TNewKey,
