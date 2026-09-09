@@ -975,6 +975,18 @@ implements Iterable<[TKey, TValue]> {
         })
     }
 
+    /** Returns entries whose keys are not contained by another key iterable. */
+    public diffKeys(keys: Iterable<TKey>): Collection<TKey, TValue> {
+        const other = new Set(keys)
+        return this.filter((_, key) => !other.has(key))
+    }
+
+    /** Returns entries whose keys are contained by another key iterable. */
+    public intersectByKeys(keys: Iterable<TKey>): Collection<TKey, TValue> {
+        const other = new Set(keys)
+        return this.filter((_, key) => other.has(key))
+    }
+
     /** Returns values not contained by another iterable. */
     public diff(values: Iterable<TValue>): Collection<TKey, TValue> {
         const other = new Set(values)
