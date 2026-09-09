@@ -1173,6 +1173,13 @@ implements Iterable<[TKey, TValue]> {
     }
 
     /** Returns the arithmetic average of selected numeric values. */
+    public avg(
+        selector: (value: TValue, key: TKey) => number = (value) => Number(value),
+    ): number | undefined {
+        return this.average(selector)
+    }
+
+    /** Returns the arithmetic average of selected numeric values. */
     public average(
         selector: (value: TValue, key: TKey) => number = (value) => Number(value),
     ): number | undefined {
