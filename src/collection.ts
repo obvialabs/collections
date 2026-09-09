@@ -1074,6 +1074,38 @@ implements Iterable<[TKey, TValue]> {
         return new Collection(result)
     }
 
+    /** Zips collection values with another iterable by position. */
+    public zip<TOther>(
+        values: Iterable<TOther>,
+    ): Collection<number, readonly [TValue | undefined, TOther | undefined]> {
+        const left = [...this.#store.values()]
+        const right = [...values]
+        const length = Math.max(left.length, right.length)
+        const entries: Array<readonly [number, readonly [TValue | undefined, TOther | undefined]]> = []
+
+        for (let index = 0; index < length; index += 1) {
+            entries.push([index, [left[index], right[index]] as const])
+        }
+
+        return new Collection(entries)
+    }
+
+    /** Produces the Cartesian product of this collection and provided iterables. */
+    public crossJoin<TOther>(
+        values: Iterable<TOther>,
+    ): Collection<number, readonly [TValue, TOther]> {
+        const entries: Array<readonly [number, readonly [TValue, TOther]]> = []
+        const right = [...values]
+
+        for (const value of this.#store.values()) {
+            for (const other of right) {
+                entries.push([entries.length, [value, other] as const])
+            }
+        }
+
+        return new Collection(entries)
+    }
+
     /** Reduces the collection to a single accumulated result. */
     public reduce<TResult>(
         callback: (
