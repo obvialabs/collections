@@ -1053,6 +1053,20 @@ implements Iterable<[TKey, TValue]> {
         return new Collection(result)
     }
 
+    /** Appends a value using the next numeric collection key. */
+    public append<TAppend>(value: TAppend): Collection<TKey | number, TValue | TAppend> {
+        const keys = [...this.#store.keys()].filter((key): key is Extract<TKey, number> => typeof key === "number")
+        const nextKey = keys.length === 0 ? 0 : Math.max(...keys) + 1
+        return this.with(nextKey, value)
+    }
+
+    /** Prepends a value and returns a numerically re-keyed collection. */
+    public prepend<TPrepend>(value: TPrepend): Collection<number, TValue | TPrepend> {
+        return new Collection(
+            [value, ...this.#store.values()].map((item, index) => [index, item] as const),
+        )
+    }
+
     /** Returns a new collection without the provided key. */
     public remove(key: TKey): Collection<TKey, TValue> {
         const result = new Map(this.#store)
