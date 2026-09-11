@@ -4,7 +4,62 @@
   "description": "Immutable, fluent and deeply typed collections for TypeScript.",
   "type": "module",
   "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./collection": {
+      "types": "./dist/collection.d.ts",
+      "import": "./dist/collection.js",
+      "default": "./dist/collection.js"
+    },
+    "./collect": {
+      "types": "./dist/collect.d.ts",
+      "import": "./dist/collect.js",
+      "default": "./dist/collect.js"
+    },
+    "./create-collection": {
+      "types": "./dist/create-collection.d.ts",
+      "import": "./dist/create-collection.js",
+      "default": "./dist/create-collection.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:runtime": "npm run build && node --test tests/runtime/*.test.mjs",
+    "test:types": "tsc -p tsconfig.types.json --noEmit",
+    "test": "npm run test:runtime && npm run test:types",
+    "check": "npm run typecheck && npm run test",
+    "prepublishOnly": "npm run check"
+  },
+  "keywords": [
+    "collection",
+    "collections",
+    "typescript",
+    "immutable",
+    "fluent",
+    "iterable",
+    "typed",
+    "utility"
+  ],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "devDependencies": {
     "typescript": "^5.8.3"
   }
