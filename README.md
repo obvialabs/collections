@@ -210,3 +210,303 @@ users.pluck("profile.missing")
 
 The nested-path API is available to `pluck`, `keyBy`, `where*`, `sortBy`, `sortByDesc`, `groupBy`, `countBy` and `implode`.
 
+## Collection
+
+The following sections document the runtime methods exposed by `Collection<TKey, TValue>`.
+
+## State & Values
+
+### `count`
+
+Returns the number of entries in the collection.
+
+```ts
+count(): number
+```
+
+```ts
+const count = collect([10, 20, 30]).count() // 3
+```
+
+### `empty`
+
+Returns `true` when the collection contains no entries.
+
+```ts
+empty(): boolean
+```
+
+```ts
+collect([]).empty() // true
+```
+
+### `notEmpty`
+
+Returns `true` when the collection contains at least one entry.
+
+```ts
+notEmpty(): boolean
+```
+
+```ts
+collect([1]).notEmpty() // true
+```
+
+### `items`
+
+Returns collection values in their current order as a readonly array.
+
+```ts
+items(): readonly TValue[]
+```
+
+```ts
+collect(new Map([["a", 1], ["b", 2]])).items() // [1, 2]
+```
+
+### `all`
+
+Alias for `items()`.
+
+```ts
+all(): readonly TValue[]
+```
+
+```ts
+collect([1, 2]).all() // [1, 2]
+```
+
+### `keys`
+
+Returns collection keys in their current order.
+
+```ts
+keys(): readonly TKey[]
+```
+
+```ts
+collect({ active: true, queued: false }).keys() // ["active", "queued"]
+```
+
+### `entries`
+
+Returns readonly key/value tuples in their current order.
+
+```ts
+entries(): readonly (readonly [TKey, TValue])[]
+```
+
+```ts
+collect(new Map([["a", 1]])).entries() // [["a", 1]]
+```
+
+### `values`
+
+Returns the same values in a new collection with contiguous numeric keys.
+
+```ts
+values(): Collection<number, TValue>
+```
+
+```ts
+collect(new Map([["a", 10], ["b", 20]])).values().keys() // [0, 1]
+```
+
+## Conversion
+
+### `toArray`
+
+Returns a mutable native array copy of the collection values.
+
+```ts
+toArray(): TValue[]
+```
+
+```ts
+const array = collect([1, 2, 3]).toArray()
+```
+
+### `toMap`
+
+Returns a defensive `Map` copy of the collection.
+
+```ts
+toMap(): ReadonlyMap<TKey, TValue>
+```
+
+```ts
+const map = collect({ a: 1, b: 2 }).toMap()
+```
+
+### `toObject`
+
+Converts the collection into a plain null-prototype object. Runtime keys must be valid property keys.
+
+```ts
+toObject(): Record<PropertyKey, TValue>
+```
+
+```ts
+collect(new Map([["draft", true]])).toObject() // { draft: true }
+```
+
+## Access
+
+### `get`
+
+Returns the value stored at a key, or `undefined` when the key is missing.
+
+```ts
+get(key: TKey): TValue | undefined
+```
+
+```ts
+users.get("ada")
+```
+
+### `getOr`
+
+Returns the keyed value when present; otherwise resolves a value or callback fallback. Existing `undefined` values are not treated as missing.
+
+```ts
+getOr(key: TKey, fallback: TValue | ((key: TKey) => TValue)): TValue
+```
+
+```ts
+settings.getOr("theme", () => "system")
+```
+
+### `has`
+
+Determines whether a key exists.
+
+```ts
+has(key: TKey): boolean
+```
+
+```ts
+users.has("ada")
+```
+
+### `hasAny`
+
+Returns `true` when at least one provided key exists.
+
+```ts
+hasAny(keys: Iterable<TKey>): boolean
+```
+
+```ts
+users.hasAny(["ada", "unknown"])
+```
+
+### `hasAll`
+
+Returns `true` when every provided key exists.
+
+```ts
+hasAll(keys: Iterable<TKey>): boolean
+```
+
+```ts
+users.hasAll(["ada", "grace"])
+```
+
+### `search`
+
+Returns the key of the first value equal to the supplied value, or the first value matching a predicate.
+
+```ts
+search(valueOrPredicate): TKey | undefined
+```
+
+```ts
+collect(new Map([["a", 10], ["b", 20]])).search(20) // "b"
+```
+
+### `first`
+
+Returns the first value, or the first value matching an optional predicate.
+
+```ts
+first(predicate?): TValue | undefined
+```
+
+```ts
+collect([10, 20, 30]).first((value) => value > 10) // 20
+```
+
+### `firstOrFail`
+
+Returns the first matching value and throws `CollectionItemNotFoundError` if no value matches.
+
+```ts
+firstOrFail(predicate?): TValue
+```
+
+```ts
+users.firstOrFail((user) => user.enabled)
+```
+
+### `last`
+
+Returns the last value, or the last value matching an optional predicate.
+
+```ts
+last(predicate?): TValue | undefined
+```
+
+```ts
+collect([10, 20, 30]).last() // 30
+```
+
+### `lastOrFail`
+
+Returns the last matching value and throws when no value matches.
+
+```ts
+lastOrFail(predicate?): TValue
+```
+
+```ts
+users.lastOrFail((user) => user.enabled)
+```
+
+### `sole`
+
+Returns the only matching value. Throws when zero or multiple values match.
+
+```ts
+sole(predicate?): TValue
+```
+
+```ts
+users.sole((user) => user.email === "ada@example.com")
+```
+
+### `nth`
+
+Returns every nth entry while preserving the original keys. `step` must be a positive integer.
+
+```ts
+nth(step: number, offset?: number): Collection<TKey, TValue>
+```
+
+```ts
+collect([0, 1, 2, 3, 4]).nth(2).items() // [0, 2, 4]
+```
+
+### `random`
+
+Returns one random value, or a numerically keyed collection containing up to `count` random values.
+
+```ts
+random(): TValue | undefined
+random(count: number): Collection<number, TValue>
+```
+
+```ts
+const one = users.random()
+const three = users.random(3)
+```
+
