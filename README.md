@@ -769,3 +769,285 @@ some(predicate): boolean
 users.some((user) => user.enabled)
 ```
 
+## Subsets & Windows
+
+### `only`
+
+Keeps entries whose keys appear in the supplied iterable.
+
+```ts
+only(keys: Iterable<TKey>): Collection<TKey, TValue>
+```
+
+```ts
+users.only(["ada", "grace"])
+```
+
+### `except`
+
+Removes entries whose keys appear in the supplied iterable.
+
+```ts
+except(keys: Iterable<TKey>): Collection<TKey, TValue>
+```
+
+```ts
+users.except(["blocked"])
+```
+
+### `take`
+
+Takes items from the start when positive or from the end when negative.
+
+```ts
+take(limit: number): Collection<TKey, TValue>
+```
+
+```ts
+collect([1, 2, 3, 4]).take(-2).items() // [3, 4]
+```
+
+### `skip`
+
+Skips items from the start when positive or from the end when negative.
+
+```ts
+skip(count: number): Collection<TKey, TValue>
+```
+
+```ts
+collect([1, 2, 3, 4]).skip(2).items() // [3, 4]
+```
+
+### `slice`
+
+Returns a native-style slice while preserving entry keys.
+
+```ts
+slice(offset: number, length?: number): Collection<TKey, TValue>
+```
+
+```ts
+collect([1, 2, 3, 4]).slice(1, 2).items() // [2, 3]
+```
+
+### `takeUntil`
+
+Takes values until a predicate matches. The matching value is excluded.
+
+```ts
+takeUntil(predicate): Collection<TKey, TValue>
+```
+
+```ts
+collect([1, 2, 3, 4]).takeUntil((value) => value === 3).items() // [1, 2]
+```
+
+### `takeWhile`
+
+Takes values while a predicate remains true.
+
+```ts
+takeWhile(predicate): Collection<TKey, TValue>
+```
+
+```ts
+collect([1, 2, 3, 4]).takeWhile((value) => value < 3).items() // [1, 2]
+```
+
+### `skipUntil`
+
+Skips values until a predicate matches and includes the matching item.
+
+```ts
+skipUntil(predicate): Collection<TKey, TValue>
+```
+
+```ts
+collect([1, 2, 3, 4]).skipUntil((value) => value === 3).items() // [3, 4]
+```
+
+### `skipWhile`
+
+Skips values while a predicate remains true.
+
+```ts
+skipWhile(predicate): Collection<TKey, TValue>
+```
+
+```ts
+collect([1, 2, 3, 4]).skipWhile((value) => value < 3).items() // [3, 4]
+```
+
+### `chunk`
+
+Splits entries into fixed-size nested collections. `size` must be a positive integer.
+
+```ts
+chunk(size: number): Collection<number, Collection<TKey, TValue>>
+```
+
+```ts
+collect([1, 2, 3, 4, 5]).chunk(2).map((chunk) => chunk.items()).items()
+```
+
+### `sliding`
+
+Creates overlapping fixed-size windows with a configurable positive step.
+
+```ts
+sliding(size: number, step?: number): Collection<number, Collection<TKey, TValue>>
+```
+
+```ts
+collect([1, 2, 3, 4]).sliding(2).map((window) => window.items()).items()
+```
+
+### `split`
+
+Splits the collection into approximately equal groups.
+
+```ts
+split(groups: number): Collection<number, Collection<TKey, TValue>>
+```
+
+```ts
+collect([1, 2, 3, 4, 5]).split(2)
+```
+
+### `pad`
+
+Pads values to an absolute target size. Positive sizes append; negative sizes prepend.
+
+```ts
+pad<TPad>(size: number, value: TPad): Collection<number, TValue | TPad>
+```
+
+```ts
+collect([1, 2]).pad(4, 0).items() // [1, 2, 0, 0]
+```
+
+### `partition`
+
+Splits items into matching and rejected collections.
+
+```ts
+partition(predicate): readonly [Collection<TKey, TValue>, Collection<TKey, TValue>]
+```
+
+```ts
+const [enabled, disabled] = users.partition((user) => user.enabled)
+```
+
+## Ordering
+
+### `reverse`
+
+Reverses iteration order while preserving keys.
+
+```ts
+reverse(): Collection<TKey, TValue>
+```
+
+```ts
+collect([1, 2, 3]).reverse().items() // [3, 2, 1]
+```
+
+### `shuffle`
+
+Returns a new collection with randomized entry order.
+
+```ts
+shuffle(): Collection<TKey, TValue>
+```
+
+```ts
+const randomized = users.shuffle()
+```
+
+### `sort`
+
+Sorts entries using a comparator that receives both values and keys.
+
+```ts
+sort(comparator): Collection<TKey, TValue>
+```
+
+```ts
+users.sort((left, right) => left.age - right.age)
+```
+
+### `sortBy`
+
+Sorts ascending using a typed nested path or callback result.
+
+```ts
+sortBy(pathOrCallback): Collection<TKey, TValue>
+```
+
+```ts
+users.sortBy("profile.score")
+```
+
+### `sortByDesc`
+
+Sorts descending using a typed nested path or callback result.
+
+```ts
+sortByDesc(pathOrCallback): Collection<TKey, TValue>
+```
+
+```ts
+users.sortByDesc("profile.score")
+```
+
+### `sortKeys`
+
+Sorts entries by key in ascending deterministic order.
+
+```ts
+sortKeys(): Collection<TKey, TValue>
+```
+
+```ts
+roles.sortKeys()
+```
+
+### `sortKeysDesc`
+
+Sorts entries by key in descending deterministic order.
+
+```ts
+sortKeysDesc(): Collection<TKey, TValue>
+```
+
+```ts
+roles.sortKeysDesc()
+```
+
+## Grouping
+
+### `groupBy`
+
+Groups values into nested collections using a typed path or callback result.
+
+```ts
+groupBy(pathOrCallback): Collection<TGroupKey, Collection<TKey, TValue>>
+```
+
+```ts
+const byRole = users.groupBy("role")
+```
+
+### `countBy`
+
+Counts values by a typed path or callback result.
+
+```ts
+countBy(pathOrCallback): Collection<TGroupKey, number>
+```
+
+```ts
+users.countBy("role").get("member")
+```
+
