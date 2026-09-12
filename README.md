@@ -1051,3 +1051,263 @@ countBy(pathOrCallback): Collection<TGroupKey, number>
 users.countBy("role").get("member")
 ```
 
+## Set Operations
+
+### `unique`
+
+Keeps the first item for each unique selected value.
+
+```ts
+unique(selector?): Collection<TKey, TValue>
+```
+
+```ts
+users.unique((user) => user.email)
+```
+
+### `duplicates`
+
+Keeps items whose selected value has already appeared earlier in iteration order.
+
+```ts
+duplicates(selector?): Collection<TKey, TValue>
+```
+
+```ts
+users.duplicates((user) => user.email)
+```
+
+### `diff`
+
+Keeps values not present in another iterable.
+
+```ts
+diff(values: Iterable<TValue>): Collection<TKey, TValue>
+```
+
+```ts
+collect([1, 2, 3]).diff([2, 4]).items() // [1, 3]
+```
+
+### `intersect`
+
+Keeps values also present in another iterable.
+
+```ts
+intersect(values: Iterable<TValue>): Collection<TKey, TValue>
+```
+
+```ts
+collect([1, 2, 3]).intersect([2, 4]).items() // [2]
+```
+
+### `diffKeys`
+
+Keeps entries whose keys are absent from another key iterable.
+
+```ts
+diffKeys(keys: Iterable<TKey>): Collection<TKey, TValue>
+```
+
+```ts
+users.diffKeys(["blocked"])
+```
+
+### `intersectByKeys`
+
+Keeps entries whose keys are present in another key iterable.
+
+```ts
+intersectByKeys(keys: Iterable<TKey>): Collection<TKey, TValue>
+```
+
+```ts
+users.intersectByKeys(["ada", "grace"])
+```
+
+### `union`
+
+Adds entries whose keys do not already exist. Existing entries win.
+
+```ts
+union(entries: Iterable<readonly [TKey, TValue]>): Collection<TKey, TValue>
+```
+
+```ts
+settings.union([["theme", "dark"]])
+```
+
+## Immutable Updates
+
+### `merge`
+
+Merges entries into a new collection. Incoming values replace entries with matching keys.
+
+```ts
+merge<TMergeKey, TMergeValue>(entries): Collection<TKey | TMergeKey, TValue | TMergeValue>
+```
+
+```ts
+settings.merge([["theme", "dark"], ["density", "compact"]])
+```
+
+### `replace`
+
+Replaces values only for keys that already exist in the collection.
+
+```ts
+replace(entries: Iterable<readonly [TKey, TValue]>): Collection<TKey, TValue>
+```
+
+```ts
+settings.replace([["theme", "dark"]])
+```
+
+### `with`
+
+Returns a new collection with one key/value pair inserted or replaced.
+
+```ts
+with<TNewKey, TNewValue>(key, value): Collection<TKey | TNewKey, TValue | TNewValue>
+```
+
+```ts
+const next = settings.with("theme", "dark")
+```
+
+### `append`
+
+Appends a value using the next numeric key. Existing numeric keys are inspected to choose the next index.
+
+```ts
+append<TAppend>(value): Collection<TKey | number, TValue | TAppend>
+```
+
+```ts
+collect([1, 2]).append(3).items() // [1, 2, 3]
+```
+
+### `prepend`
+
+Prepends a value and returns a numerically re-keyed collection.
+
+```ts
+prepend<TPrepend>(value): Collection<number, TValue | TPrepend>
+```
+
+```ts
+collect([2, 3]).prepend(1).items() // [1, 2, 3]
+```
+
+### `remove`
+
+Returns a new collection without the supplied key.
+
+```ts
+remove(key: TKey): Collection<TKey, TValue>
+```
+
+```ts
+const next = users.remove("blocked")
+```
+
+## Combining
+
+### `zip`
+
+Combines values by position. Missing positions are represented by `undefined`.
+
+```ts
+zip<TOther>(values): Collection<number, readonly [TValue | undefined, TOther | undefined]>
+```
+
+```ts
+collect([1, 2]).zip(["a"]).items() // [[1, "a"], [2, undefined]]
+```
+
+### `crossJoin`
+
+Returns the Cartesian product of collection values and another iterable.
+
+```ts
+crossJoin<TOther>(values): Collection<number, readonly [TValue, TOther]>
+```
+
+```ts
+collect([1, 2]).crossJoin(["a", "b"]).items()
+```
+
+## Reduction & Flow
+
+### `reduce`
+
+Reduces entries into a native accumulated result.
+
+```ts
+reduce<TResult>(callback, initial): TResult
+```
+
+```ts
+const total = collect([1, 2, 3]).reduce((sum, value) => sum + value, 0)
+```
+
+### `each`
+
+Executes a callback for each entry and returns the same collection. Returning `false` stops iteration early.
+
+```ts
+each(callback): this
+```
+
+```ts
+users.each((user) => { console.log(user) })
+```
+
+### `tap`
+
+Runs a side-effect callback with the collection and returns the same instance.
+
+```ts
+tap(callback): this
+```
+
+```ts
+users.tap((collection) => console.log(collection.count())).filter((user) => user.enabled)
+```
+
+### `pipe`
+
+Passes the collection to a callback and returns the callback result.
+
+```ts
+pipe<TResult>(callback): TResult
+```
+
+```ts
+const count = users.pipe((collection) => collection.count())
+```
+
+### `when`
+
+Runs a collection transformation when a condition is true; otherwise returns the current collection.
+
+```ts
+when(condition, callback): Collection<TKey, TValue>
+```
+
+```ts
+users.when(includeDisabled, (items) => items.where("disabled", true))
+```
+
+### `unless`
+
+Runs a collection transformation when a condition is false.
+
+```ts
+unless(condition, callback): Collection<TKey, TValue>
+```
+
+```ts
+users.unless(includeDisabled, (items) => items.whereNot("disabled", true))
+```
+
