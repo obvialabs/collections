@@ -510,3 +510,262 @@ const one = users.random()
 const three = users.random(3)
 ```
 
+## Transformation
+
+### `map`
+
+Transforms every value while preserving the current keys.
+
+```ts
+map<TMapped>(callback): Collection<TKey, TMapped>
+```
+
+```ts
+collect([1, 2, 3]).map((value) => value * 2).items() // [2, 4, 6]
+```
+
+### `mapValues`
+
+Semantic alias for `map()` when emphasizing that only values change.
+
+```ts
+mapValues<TMapped>(callback): Collection<TKey, TMapped>
+```
+
+```ts
+users.mapValues((user) => user.name)
+```
+
+### `mapKeys`
+
+Transforms each key while keeping its value.
+
+```ts
+mapKeys<TMappedKey>(callback): Collection<TMappedKey, TValue>
+```
+
+```ts
+users.mapKeys((user) => user.email)
+```
+
+### `mapWithKeys`
+
+Transforms every entry into a new key/value tuple.
+
+```ts
+mapWithKeys<TMappedKey, TMappedValue>(callback): Collection<TMappedKey, TMappedValue>
+```
+
+```ts
+users.mapWithKeys((user) => [user.email, user.name])
+```
+
+### `flatMap`
+
+Maps each item to an iterable and flattens one layer into numeric keys.
+
+```ts
+flatMap<TMapped>(callback): Collection<number, TMapped>
+```
+
+```ts
+collect([1, 2]).flatMap((value) => [value, value * 10]).items() // [1, 10, 2, 20]
+```
+
+### `flatten`
+
+Recursively flattens iterable values. Strings are treated as terminal values. The default depth is unlimited.
+
+```ts
+flatten(depth?: number): Collection<number, unknown>
+```
+
+```ts
+collect([[[1]], [[2, 3]]]).flatten().items() // [1, 2, 3]
+```
+
+### `collapse`
+
+Flattens exactly one iterable layer and infers the nested item type.
+
+```ts
+collapse(): Collection<number, FlattenValue<TValue>>
+```
+
+```ts
+collect([[1, 2], [3]]).collapse().items() // [1, 2, 3]
+```
+
+### `pluck`
+
+Extracts a strongly typed nested path from every value while preserving keys.
+
+```ts
+pluck(path): Collection<TKey, CollectionPathValue<...>>
+```
+
+```ts
+users.pluck("profile.email")
+```
+
+### `keyBy`
+
+Re-keys values using a typed nested path or callback. Later duplicate keys replace earlier values.
+
+```ts
+keyBy(pathOrCallback): Collection<TMappedKey, TValue>
+```
+
+```ts
+users.keyBy("profile.email")
+```
+
+## Filtering
+
+### `filter`
+
+Keeps values accepted by a predicate. Type-guard predicates narrow the resulting collection value type.
+
+```ts
+filter(predicate): Collection<TKey, TValue>
+```
+
+```ts
+collect([1, null, 2]).filter((value): value is number => value !== null)
+```
+
+### `reject`
+
+Removes values for which the predicate returns `true`.
+
+```ts
+reject(predicate): Collection<TKey, TValue>
+```
+
+```ts
+users.reject((user) => user.disabled)
+```
+
+### `where`
+
+Keeps items whose nested path strictly equals an expected value using `Object.is`.
+
+```ts
+where(path, expected): Collection<TKey, TValue>
+```
+
+```ts
+users.where("role", "admin")
+```
+
+### `whereNot`
+
+Keeps items whose nested path does not strictly equal an expected value.
+
+```ts
+whereNot(path, expected): Collection<TKey, TValue>
+```
+
+```ts
+users.whereNot("role", "guest")
+```
+
+### `whereIn`
+
+Keeps items whose nested path is contained by the supplied iterable.
+
+```ts
+whereIn(path, values): Collection<TKey, TValue>
+```
+
+```ts
+users.whereIn("role", ["admin", "member"])
+```
+
+### `whereNotIn`
+
+Keeps items whose nested path is not contained by the supplied iterable.
+
+```ts
+whereNotIn(path, values): Collection<TKey, TValue>
+```
+
+```ts
+users.whereNotIn("role", ["blocked"])
+```
+
+### `whereNull`
+
+Keeps items whose nested path resolves to `null` or `undefined`.
+
+```ts
+whereNull(path): Collection<TKey, TValue>
+```
+
+```ts
+users.whereNull("profile.avatar")
+```
+
+### `whereNotNull`
+
+Keeps items whose nested path resolves to a non-nullish value.
+
+```ts
+whereNotNull(path): Collection<TKey, TValue>
+```
+
+```ts
+users.whereNotNull("profile.avatar")
+```
+
+## Predicates
+
+### `contains`
+
+Determines whether the collection contains a value using `Object.is`, or whether a predicate matches any item.
+
+```ts
+contains(valueOrPredicate): boolean
+```
+
+```ts
+numbers.contains(10)
+users.contains((user) => user.enabled)
+```
+
+### `doesntContain`
+
+Inverse of `contains()`.
+
+```ts
+doesntContain(valueOrPredicate): boolean
+```
+
+```ts
+users.doesntContain((user) => user.blocked)
+```
+
+### `every`
+
+Returns `true` when every item satisfies a predicate. Empty collections return `true`.
+
+```ts
+every(predicate): boolean
+```
+
+```ts
+numbers.every((value) => value > 0)
+```
+
+### `some`
+
+Returns `true` when at least one item satisfies a predicate.
+
+```ts
+some(predicate): boolean
+```
+
+```ts
+users.some((user) => user.enabled)
+```
+
