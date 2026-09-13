@@ -11,4 +11,5 @@ coverageSkipTestFiles = true
 # every executable source path should remain covered. A new uncovered path is
 # treated as a test-suite regression rather than accepted as drift.
 coverageThreshold = 1.0
-coverageReporter = "text"
+coverageReporter = ["text", "lcov"]
+coverageDir = "coverage"
