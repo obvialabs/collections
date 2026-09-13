@@ -42,6 +42,20 @@ export function compareValues(left: unknown, right: unknown): number {
     return String(left).localeCompare(String(right))
 }
 
+/** @internal Validates that a collection argument is an integer. */
+export function assertInteger(value: number, label: string): void {
+    if (!Number.isInteger(value)) {
+        throw new RangeError(`${label} must be an integer.`)
+    }
+}
+
+/** @internal Validates that a collection argument is a non-negative integer. */
+export function assertNonNegativeInteger(value: number, label: string): void {
+    if (!Number.isInteger(value) || value < 0) {
+        throw new RangeError(`${label} must be a non-negative integer.`)
+    }
+}
+
 /** @internal Validates collection size and step arguments. */
 export function assertPositiveInteger(value: number, label: string): void {
     if (!Number.isInteger(value) || value <= 0) {

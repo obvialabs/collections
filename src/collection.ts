@@ -3,6 +3,8 @@ import {
     CollectionMultipleItemsError,
 } from "./errors.js"
 import {
+    assertInteger,
+    assertNonNegativeInteger,
     assertPositiveInteger,
     compareValues,
     getPathValue,
@@ -293,9 +295,8 @@ implements Iterable<[TKey, TValue]> {
 
     /** Returns every nth item while preserving the original keys. */
     public nth(step: number, offset: number = 0): Collection<TKey, TValue> {
-        if (!Number.isInteger(step) || step <= 0) {
-            throw new RangeError("Collection nth step must be a positive integer.")
-        }
+        assertPositiveInteger(step, "Collection nth step")
+        assertNonNegativeInteger(offset, "Collection nth offset")
 
         const entries: Array<readonly [TKey, TValue]> = []
         let index = 0
@@ -326,8 +327,11 @@ implements Iterable<[TKey, TValue]> {
 
     /** Flattens iterable collection values by the requested depth. */
     public flatten(depth: number = Number.POSITIVE_INFINITY): Collection<number, unknown> {
-        if (depth < 0 || Number.isNaN(depth)) {
-            throw new RangeError("Collection flatten depth must be zero or greater.")
+        if (
+            depth !== Number.POSITIVE_INFINITY
+            && (!Number.isInteger(depth) || depth < 0)
+        ) {
+            throw new RangeError("Collection flatten depth must be a non-negative integer or Infinity.")
         }
 
         const output: unknown[] = []
@@ -667,6 +671,7 @@ implements Iterable<[TKey, TValue]> {
 
     /** Returns the first or last number of collection items. */
     public take(limit: number): Collection<TKey, TValue> {
+        assertInteger(limit, "Collection take limit")
         if (limit === 0) return new Collection()
 
         const entries = [...this.#store.entries()]
@@ -679,6 +684,7 @@ implements Iterable<[TKey, TValue]> {
 
     /** Skips a number of items from the beginning or end of the collection. */
     public skip(count: number): Collection<TKey, TValue> {
+        assertInteger(count, "Collection skip count")
         const entries = [...this.#store.entries()]
 
         return new Collection(
@@ -693,10 +699,18 @@ implements Iterable<[TKey, TValue]> {
         offset: number,
         length?: number,
     ): Collection<TKey, TValue> {
-        const entries = [...this.#store.entries()]
-        const end = length === undefined ? undefined : offset + length
+        assertInteger(offset, "Collection slice offset")
+        if (length !== undefined) {
+            assertNonNegativeInteger(length, "Collection slice length")
+        }
 
-        return new Collection(entries.slice(offset, end))
+        const entries = [...this.#store.entries()]
+        const start = offset < 0
+            ? Math.max(entries.length + offset, 0)
+            : Math.min(offset, entries.length)
+        const end = length === undefined ? undefined : start + length
+
+        return new Collection(entries.slice(start, end))
     }
 
     /** Splits the collection into fixed-size chunks. */
@@ -744,8 +758,22 @@ implements Iterable<[TKey, TValue]> {
         if (this.empty()) return new Collection()
 
         const entries = [...this.#store.entries()]
-        const size = Math.ceil(entries.length / groups)
-        return this.chunk(size)
+        const groupCount = Math.min(groups, entries.length)
+        const baseSize = Math.floor(entries.length / groupCount)
+        const remainder = entries.length % groupCount
+        const result: Array<readonly [number, Collection<TKey, TValue>]> = []
+        let offset = 0
+
+        for (let index = 0; index < groupCount; index += 1) {
+            const size = baseSize + (index < remainder ? 1 : 0)
+            result.push([
+                index,
+                new Collection(entries.slice(offset, offset + size)),
+            ])
+            offset += size
+        }
+
+        return new Collection(result)
     }
 
     /** Pads the collection values to the requested absolute size. */
@@ -753,8 +781,10 @@ implements Iterable<[TKey, TValue]> {
         size: number,
         value: TPad,
     ): Collection<number, TValue | TPad> {
+        assertInteger(size, "Collection pad size")
+
         const values: Array<TValue | TPad> = [...this.#store.values()]
-        const target = Math.abs(Math.trunc(size))
+        const target = Math.abs(size)
         const missing = Math.max(0, target - values.length)
 
         if (size >= 0) {
@@ -798,8 +828,10 @@ implements Iterable<[TKey, TValue]> {
             return this.items()[index]
         }
 
-        if (!Number.isInteger(count) || count < 0) {
-            throw new RangeError("Collection random count must be a non-negative integer.")
+        assertNonNegativeInteger(count, "Collection random count")
+
+        if (count > this.count()) {
+            throw new RangeError("Collection random count cannot exceed the collection size.")
         }
 
         return this.shuffle().take(count).values()
