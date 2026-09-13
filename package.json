@@ -39,11 +39,16 @@
     "clean": "rm -rf dist",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:runtime": "npm run build && node --test tests/runtime/*.test.mjs",
+    "test:unit": "bun run build && bun test tests/unit",
+    "test:behavior": "bun run build && bun test tests/behavior",
+    "test:guards": "bun run build && bun test tests/guards",
+    "test:properties": "bun run build && bun test tests/properties",
+    "test:runtime": "bun run build && bun test tests/unit tests/behavior tests/guards tests/properties",
+    "test:coverage": "bun run build && bun test --coverage tests/unit tests/behavior tests/guards tests/properties",
     "test:types": "tsc -p tsconfig.types.json --noEmit",
-    "test": "npm run test:runtime && npm run test:types",
-    "check": "npm run typecheck && npm run test",
-    "prepublishOnly": "npm run check"
+    "test": "bun run test:runtime && bun run test:types",
+    "check": "bun run typecheck && bun run test",
+    "prepublishOnly": "bun run check"
   },
   "keywords": [
     "collection",
