@@ -1,0 +1,14 @@
+[test]
+# Coverage is requested explicitly through `bun run test:coverage`; ordinary
+# focused test commands stay fast.
+coverage = false
+
+# Test files are verification code, not part of the package surface whose
+# coverage we want to measure.
+coverageSkipTestFiles = true
+
+# The collection package is intentionally small and deterministic enough that
+# every executable source path should remain covered. A new uncovered path is
+# treated as a test-suite regression rather than accepted as drift.
+coverageThreshold = 1.0
+coverageReporter = "text"
