@@ -32,13 +32,15 @@ export type CollectionPath<TValue> = TValue extends AtomicValue
 export type CollectionPathValue<
     TValue,
     TPath extends string,
-> = TPath extends `${infer THead}.${infer TTail}`
-    ? THead extends keyof TValue
-        ? CollectionPathValue<TValue[THead], TTail>
-        : never
-    : TPath extends keyof TValue
-        ? TValue[TPath]
-        : never
+> = TValue extends null | undefined
+    ? undefined
+    : TPath extends `${infer THead}.${infer TTail}`
+        ? THead extends keyof TValue
+            ? CollectionPathValue<TValue[THead], TTail>
+            : never
+        : TPath extends keyof TValue
+            ? TValue[TPath]
+            : never
 
 /** Resolves one iterable/array layer from a collection value. */
 export type FlattenValue<TValue> = TValue extends Iterable<infer TItem>

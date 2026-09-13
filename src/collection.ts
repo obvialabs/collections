@@ -834,6 +834,12 @@ implements Iterable<[TKey, TValue]> {
             throw new RangeError("Collection random count cannot exceed the collection size.")
         }
 
+        // A zero-sized sample is known without touching the RNG or shuffling
+        // an otherwise potentially large collection.
+        if (count === 0) {
+            return new Collection()
+        }
+
         return this.shuffle().take(count).values()
     }
 
@@ -881,16 +887,22 @@ implements Iterable<[TKey, TValue]> {
     public sortBy<TComparable>(
         selector: CollectionPath<TValue> | ((value: TValue, key: TKey) => TComparable),
     ): Collection<TKey, TValue> {
-        return this.sort((left, right, leftKey, rightKey) => {
-            const leftValue = typeof selector === "function"
-                ? selector(left, leftKey)
-                : getPathValue(left, selector)
-            const rightValue = typeof selector === "function"
-                ? selector(right, rightKey)
-                : getPathValue(right, selector)
+        // Resolve the selector exactly once per entry. Besides avoiding
+        // repeated path/callback work inside the sort comparator, this keeps
+        // callback behavior deterministic for selectors with observable work.
+        const selected = [...this.#store.entries()].map(([key, value]) => ({
+            key,
+            value,
+            comparable: typeof selector === "function"
+                ? selector(value, key)
+                : getPathValue(value, selector),
+        }))
 
-            return compareValues(leftValue, rightValue)
-        })
+        selected.sort((left, right) => compareValues(left.comparable, right.comparable))
+
+        return new Collection(
+            selected.map(({ key, value }) => [key, value] as const),
+        )
     }
 
     /** Sorts collection items descending by a nested value path. */
@@ -906,16 +918,19 @@ implements Iterable<[TKey, TValue]> {
     public sortByDesc<TComparable>(
         selector: CollectionPath<TValue> | ((value: TValue, key: TKey) => TComparable),
     ): Collection<TKey, TValue> {
-        return this.sort((left, right, leftKey, rightKey) => {
-            const leftValue = typeof selector === "function"
-                ? selector(left, leftKey)
-                : getPathValue(left, selector)
-            const rightValue = typeof selector === "function"
-                ? selector(right, rightKey)
-                : getPathValue(right, selector)
+        const selected = [...this.#store.entries()].map(([key, value]) => ({
+            key,
+            value,
+            comparable: typeof selector === "function"
+                ? selector(value, key)
+                : getPathValue(value, selector),
+        }))
 
-            return compareValues(rightValue, leftValue)
-        })
+        selected.sort((left, right) => compareValues(right.comparable, left.comparable))
+
+        return new Collection(
+            selected.map(({ key, value }) => [key, value] as const),
+        )
     }
 
     /** Sorts collection items by their keys in ascending order. */
@@ -1098,8 +1113,24 @@ implements Iterable<[TKey, TValue]> {
 
     /** Appends a value using the next numeric collection key. */
     public append<TAppend>(value: TAppend): Collection<TKey | number, TValue | TAppend> {
-        const keys = [...this.#store.keys()].filter((key): key is Extract<TKey, number> => typeof key === "number")
-        const nextKey = keys.length === 0 ? 0 : Math.max(...keys) + 1
+        const keys = [...this.#store.keys()].filter(
+            (key): key is Extract<TKey, number> => typeof key === "number" && Number.isFinite(key),
+        )
+        const largestKey = keys.length === 0 ? undefined : Math.max(...keys)
+        let nextKey = largestKey === undefined ? 0 : largestKey + 1
+
+        // Extremely large floating-point keys can make `key + 1 === key`.
+        // Non-finite numeric keys also have no meaningful successor. Fall
+        // back to the first free non-negative integer rather than replacing
+        // an existing entry during an append operation.
+        const hasNumericKey = (key: number): boolean =>
+            (this.#store as ReadonlyMap<unknown, TValue>).has(key)
+
+        if (!Number.isFinite(nextKey) || hasNumericKey(nextKey)) {
+            nextKey = 0
+            while (hasNumericKey(nextKey)) nextKey += 1
+        }
+
         return this.with(nextKey, value)
     }
 
