@@ -36,7 +36,7 @@ describe("core collection behavior", () => {
     })
 
     test("getOr distinguishes missing keys from undefined values", () => {
-        const collection = new Collection([["defined", undefined]])
+        const collection = new Collection<string, string | undefined>([["defined", undefined]])
 
         expect(collection.has("defined")).toBe(true)
         expect(collection.getOr("defined", "fallback")).toBeUndefined()
