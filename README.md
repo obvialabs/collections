@@ -1311,3 +1311,131 @@ unless(condition, callback): Collection<TKey, TValue>
 users.unless(includeDisabled, (items) => items.whereNot("disabled", true))
 ```
 
+## Aggregates
+
+### `sum`
+
+Sums numeric values selected by an optional callback.
+
+```ts
+sum(selector?): number
+```
+
+```ts
+orders.sum((order) => order.total)
+```
+
+### `avg`
+
+Alias for `average()`.
+
+```ts
+avg(selector?): number | undefined
+```
+
+```ts
+orders.avg((order) => order.total)
+```
+
+### `average`
+
+Returns the arithmetic average of selected numeric values, or `undefined` for an empty collection.
+
+```ts
+average(selector?): number | undefined
+```
+
+```ts
+orders.average((order) => order.total)
+```
+
+### `min`
+
+Returns the minimum selected value using deterministic scalar comparison.
+
+```ts
+min(selector?): TComparable | undefined
+```
+
+```ts
+users.min((user) => user.age)
+```
+
+### `max`
+
+Returns the maximum selected value using deterministic scalar comparison.
+
+```ts
+max(selector?): TComparable | undefined
+```
+
+```ts
+users.max((user) => user.age)
+```
+
+### `median`
+
+Returns the median selected numeric value, or `undefined` for an empty collection.
+
+```ts
+median(selector?): number | undefined
+```
+
+```ts
+orders.median((order) => order.total)
+```
+
+### `mode`
+
+Returns every selected value tied for the highest frequency.
+
+```ts
+mode(selector?): readonly TMode[]
+```
+
+```ts
+collect([1, 2, 2, 3, 3]).mode() // [2, 3]
+```
+
+## Strings
+
+### `join`
+
+Converts values to strings and joins them. An optional final glue can be used before the last item.
+
+```ts
+join(glue: string, finalGlue?: string): string
+```
+
+```ts
+collect(["Ada", "Grace", "Linus"]).join(", ", " and ")
+```
+
+### `implode`
+
+Extracts a nested path, converts each result to string and joins with the supplied glue.
+
+```ts
+implode(path, glue: string): string
+```
+
+```ts
+users.implode("profile.email", ", ")
+```
+
+## Iteration
+
+### `[Symbol.iterator]`
+
+Returns the underlying key/value entry iterator. This makes collections compatible with `for...of` and spread syntax.
+
+```ts
+[Symbol.iterator](): Iterator<[TKey, TValue]>
+```
+
+```ts
+for (const [key, value] of collection) {
+    console.log(key, value)
+}
+```
+
