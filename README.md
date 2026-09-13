@@ -1545,3 +1545,108 @@ values.getOr("present", "fallback") // undefined
 values.getOr("missing", "fallback") // "fallback"
 ```
 
+## Example: Typed UI Slides
+
+```ts
+import { createCollection } from "@obvia/collections"
+
+export const slides = createCollection({
+    canvas: {
+        eyebrow: "Visual workspace",
+        title: "Design at the speed of thought.",
+        stats: [
+            { value: "∞", label: "Canvas" },
+            { value: "1", label: "Workbench" },
+        ],
+    },
+    collaboration: {
+        eyebrow: "Shared context",
+        title: "Keep product decisions connected.",
+        stats: [
+            { value: "Live", label: "Presence" },
+            { value: "1×", label: "Source of truth" },
+        ],
+    },
+})
+
+export type Slide = ReturnType<typeof slides.items>[number]
+export type SlideId = ReturnType<typeof slides.keys>[number]
+
+slides.canvas.id // "canvas"
+slides.items().map((slide) => slide.title)
+slides.count() // 2
+```
+
+## Package Exports
+
+The complete API is available from the package root.
+
+```ts
+import {
+    Collection,
+    CollectionItemNotFoundError,
+    CollectionMultipleItemsError,
+    collect,
+    createCollection,
+} from "@obvia/collections"
+```
+
+Focused subpath exports are also available.
+
+```ts
+import { Collection } from "@obvia/collections/collection"
+import { collect } from "@obvia/collections/collect"
+import { createCollection } from "@obvia/collections/create-collection"
+```
+
+## Development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Type-check the source:
+
+```bash
+npm run typecheck
+```
+
+Build ESM JavaScript and declaration files:
+
+```bash
+npm run build
+```
+
+Run runtime tests and compile-time type tests:
+
+```bash
+npm test
+```
+
+Run the complete release check:
+
+```bash
+npm run check
+```
+
+Inspect the files that will be published:
+
+```bash
+npm pack --dry-run
+```
+
+## Publishing
+
+The package publishes only `dist`, `README.md`, `CHANGELOG.md` and `LICENSE` in addition to npm-managed package metadata. The package is public-scoped and declares no runtime dependencies.
+
+A publish runs the complete verification suite through `prepublishOnly`:
+
+```bash
+npm publish --access public
+```
+
+## License
+
+MIT
