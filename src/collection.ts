@@ -906,7 +906,16 @@ implements Iterable<[TKey, TValue]> {
     public sortByDesc<TComparable>(
         selector: CollectionPath<TValue> | ((value: TValue, key: TKey) => TComparable),
     ): Collection<TKey, TValue> {
-        return this.sortBy(selector as (value: TValue, key: TKey) => TComparable).reverse()
+        return this.sort((left, right, leftKey, rightKey) => {
+            const leftValue = typeof selector === "function"
+                ? selector(left, leftKey)
+                : getPathValue(left, selector)
+            const rightValue = typeof selector === "function"
+                ? selector(right, rightKey)
+                : getPathValue(right, selector)
+
+            return compareValues(rightValue, leftValue)
+        })
     }
 
     /** Sorts collection items by their keys in ascending order. */
@@ -918,7 +927,9 @@ implements Iterable<[TKey, TValue]> {
 
     /** Sorts collection items by their keys in descending order. */
     public sortKeysDesc(): Collection<TKey, TValue> {
-        return this.sortKeys().reverse()
+        return new Collection(
+            [...this.#store.entries()].sort(([left], [right]) => compareValues(right, left)),
+        )
     }
 
     /** Groups collection items by a nested value path. */
