@@ -1439,3 +1439,109 @@ for (const [key, value] of collection) {
 }
 ```
 
+## Errors
+
+### `CollectionItemNotFoundError`
+
+Thrown by operations that require one matching item when no item exists, including `firstOrFail()`, `lastOrFail()` and the zero-match case of `sole()`.
+
+```ts
+import {
+    CollectionItemNotFoundError,
+    collect,
+} from "@obvia/collections"
+
+try {
+    collect([]).firstOrFail()
+} catch (error) {
+    if (error instanceof CollectionItemNotFoundError) {
+        console.error("No item matched")
+    }
+}
+```
+
+### `CollectionMultipleItemsError`
+
+Thrown by `sole()` when more than one value matches.
+
+```ts
+import {
+    CollectionMultipleItemsError,
+    collect,
+} from "@obvia/collections"
+
+try {
+    collect([1, 2, 3]).sole((value) => value > 1)
+} catch (error) {
+    if (error instanceof CollectionMultipleItemsError) {
+        console.error("More than one item matched")
+    }
+}
+```
+
+## Type Narrowing
+
+`filter()` accepts user-defined type guards and carries the narrowed value type into the returned collection.
+
+```ts
+const values: readonly (number | null)[] = [1, null, 2]
+
+const numbers = collect(values).filter(
+    (value): value is number => value !== null,
+)
+
+// Collection<number, number>
+numbers
+```
+
+## Key Preservation
+
+Operations preserve keys when there is a meaningful one-to-one relationship with the source entries.
+
+```ts
+const users = collect(new Map([
+    ["ada", { name: "Ada" }],
+    ["grace", { name: "Grace" }],
+]))
+
+users.map((user) => user.name).keys()
+// ["ada", "grace"]
+
+users.filter((user) => user.name.startsWith("A")).keys()
+// ["ada"]
+```
+
+Operations that fundamentally create positional results use numeric keys, including `values`, `flatMap`, `flatten`, `collapse`, `chunk`, `sliding`, `split`, `pad`, `prepend`, `zip` and `crossJoin`.
+
+## Immutability
+
+Collection operations do not mutate their source.
+
+```ts
+const original = collect(new Map([
+    ["theme", "system"],
+]))
+
+const changed = original.with("theme", "dark")
+
+original.get("theme") // "system"
+changed.get("theme") // "dark"
+```
+
+`toArray()`, `toMap()` and `toObject()` return defensive containers rather than exposing internal storage.
+
+## `undefined` Values
+
+A stored `undefined` value is different from a missing key. Use `has()` when presence matters.
+
+```ts
+const values = collect(new Map([
+    ["present", undefined],
+]))
+
+values.has("present") // true
+values.get("present") // undefined
+values.getOr("present", "fallback") // undefined
+values.getOr("missing", "fallback") // "fallback"
+```
+
