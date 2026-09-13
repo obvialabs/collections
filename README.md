@@ -1601,35 +1601,86 @@ import { createCollection } from "@obvia/collections/create-collection"
 
 ## Development
 
-Install dependencies:
+Install dependencies with Bun:
 
 ```bash
-npm install
+bun install
 ```
 
 Type-check the source:
 
 ```bash
-npm run typecheck
+bun run typecheck
 ```
 
 Build ESM JavaScript and declaration files:
 
 ```bash
-npm run build
+bun run build
 ```
 
-Run runtime tests and compile-time type tests:
+### Test strategy
+
+The test suite is intentionally split by responsibility instead of relying on unit tests alone:
+
+- `tests/unit` verifies individual collection operations and their return values.
+- `tests/behavior` protects immutability, direct-access definitions, package exports and the public API surface.
+- `tests/guards` verifies failure behavior and rejects invalid arguments instead of accepting silent coercion.
+- `tests/properties` compares generated inputs against equivalent native Array/Map behavior and checks collection invariants.
+- `tests/types.test.ts` is compiled separately to lock literal inference, nested paths, narrowing and expected TypeScript failures.
+
+Run the complete runtime suite with Bun:
 
 ```bash
-npm test
+bun run test:runtime
+```
+
+Run an individual layer while developing:
+
+```bash
+bun run test:unit
+bun run test:behavior
+bun run test:guards
+bun run test:properties
+bun run test:types
+```
+
+Generate Bun's runtime coverage report:
+
+```bash
+bun run test:coverage
+```
+
+Run every test layer:
+
+```bash
+bun run test
 ```
 
 Run the complete release check:
 
 ```bash
-npm run check
+bun run check
 ```
+
+### Benchmarks
+
+Benchmarks are deliberately separate from correctness tests. They report timing data without turning machine-dependent performance into flaky pass/fail assertions.
+
+```bash
+bun run benchmark
+```
+
+The default benchmark uses 25,000 items, 3 warmups and 15 measured samples. Override those values when profiling larger workloads:
+
+```bash
+COLLECTION_BENCH_SIZE=100000 \
+COLLECTION_BENCH_SAMPLES=30 \
+COLLECTION_BENCH_WARMUPS=5 \
+bun run benchmark
+```
+
+The benchmark includes native Array context plus collection construction, mapping/filtering, grouping, sorting, a fluent pipeline and defined-collection direct access. Treat the output as a regression/profiling aid rather than a universal performance score.
 
 Inspect the files that will be published:
 

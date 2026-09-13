@@ -47,6 +47,7 @@
     "test:coverage": "bun run build && bun test --coverage tests/unit tests/behavior tests/guards tests/properties",
     "test:types": "tsc -p tsconfig.types.json --noEmit",
     "test": "bun run test:runtime && bun run test:types",
+    "benchmark": "bun run build && bun run benchmarks/collection.bench.ts",
     "check": "bun run typecheck && bun run test",
     "prepublishOnly": "bun run check"
   },
