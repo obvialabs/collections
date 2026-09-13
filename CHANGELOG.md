@@ -5,6 +5,7 @@ All notable changes to `@obvia/collections` are documented in this file.
 ## Unreleased
 
 - Reworked the package documentation into a concise usage-focused README plus a complete published `docs/api.md` reference.
+- Added independent GitHub Actions workflows for tests, LCOV coverage, and scheduled/manual benchmarks.
 - Completed behavior-contract coverage for the full existing public API without adding new collection features.
 - Added detailed creation, conversion, access, transformation, filtering, ordering, grouping, set/update, flow, aggregate, edge-case and negative-behavior tests.
 - Added property/law checks, deterministic performance-work tests, README/API documentation contracts and an expanded benchmark matrix.
