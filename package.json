@@ -45,7 +45,7 @@
     "test:performance": "bun run build && bun test tests/performance",
     "test:docs": "bun run build && bun test tests/behavior/readme-contract.test.ts",
     "test:runtime": "bun run build && bun test tests/unit tests/behavior tests/guards tests/contracts tests/properties tests/performance",
-    "test:coverage": "bun run build && bun test --coverage tests/unit tests/behavior tests/guards tests/contracts tests/properties tests/performance",
+    "test:coverage": "bun run build && bun -e \"import { rmSync } from 'node:fs'; rmSync('coverage', { recursive: true, force: true })\" && bun test --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=coverage tests/unit tests/behavior tests/guards tests/contracts tests/properties tests/performance",
     "test:types": "tsc -p tsconfig.types.json --noEmit",
     "test": "bun run test:runtime && bun run test:types",
     "benchmark": "bun run build && bun run benchmarks/collection.bench.ts",

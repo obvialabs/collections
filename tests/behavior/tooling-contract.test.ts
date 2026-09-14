@@ -39,6 +39,9 @@ describe("tooling contract", () => {
         expect(scripts["test:runtime"]).toContain("tests/properties")
         expect(scripts["test:runtime"]).toContain("tests/performance")
         expect(scripts["test:coverage"]).toContain("--coverage")
+        expect(scripts["test:coverage"]).toContain("--coverage-reporter=text")
+        expect(scripts["test:coverage"]).toContain("--coverage-reporter=lcov")
+        expect(scripts["test:coverage"]).toContain("--coverage-dir=coverage")
         expect(scripts["test:types"]).toContain("tsconfig.types.json")
         expect(scripts.benchmark).toContain("benchmarks/collection.bench.ts")
         expect(scripts.test).not.toContain("benchmark")
@@ -73,7 +76,10 @@ describe("tooling contract", () => {
 
         expect(coverageWorkflow).toContain("bun run test:coverage")
         expect(coverageWorkflow).toContain("actions/upload-artifact@v7")
+        expect(coverageWorkflow).toContain("Verify LCOV report")
+        expect(coverageWorkflow).toContain("test -s coverage/lcov.info")
         expect(coverageWorkflow).toContain("coverage/lcov.info")
+        expect(coverageWorkflow).not.toContain("if: always()")
         expect(coverageWorkflow).not.toContain("bun run benchmark")
 
         expect(benchmarkWorkflow).toContain("bun run benchmark:ci")

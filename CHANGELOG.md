@@ -4,6 +4,7 @@ All notable changes to `@obvia/collections` are documented in this file.
 
 ## Unreleased
 
+- Fixed LCOV artifact generation by making Bun coverage reporters/output directory explicit and verifying `coverage/lcov.info` before upload.
 - Modernized GitHub Actions to consistent `tests / collections`, `coverage / collections`, and `benchmark / collections` checks using current checkout/artifact actions and the package-pinned Bun runtime.
 - Rebuilt benchmarks around measured 10K/100K/1M workloads with Bun high-resolution timing, warmups, median/p95 statistics, native baselines, runner metadata, and machine-readable reports.
 - Unified collection creation around `collect()` and removed `createCollection()`, definition `id` injection, and direct Collection-key properties. Object records now use the same immutable Collection model as arrays, maps, and entry iterables.
@@ -20,7 +21,7 @@ All notable changes to `@obvia/collections` are documented in this file.
 - Completed behavior-contract coverage for the full existing public API without adding new collection features.
 - Added detailed creation, conversion, access, transformation, filtering, ordering, grouping, set/update, flow, aggregate, edge-case and negative-behavior tests.
 - Added property/law checks, deterministic performance-work tests, README/API documentation contracts and an expanded benchmark matrix.
-- Added compile-time contracts for literal definition IDs, collisions, nested paths, optional nested branches, narrowing and fluent return types.
+- Added compile-time contracts for literal object keys, method-name collisions, nested paths, optional nested branches, narrowing and fluent return types.
 - Fixed optional nested path value inference so valid optional branches resolve to `T | undefined`.
 - Made scalar ordering deterministic for `null`, `undefined`, `NaN`, bigint, dates and string-comparable values.
 - Resolved `sortBy()` / `sortByDesc()` callback selectors once per source entry instead of repeatedly inside the comparator.

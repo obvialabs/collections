@@ -52,13 +52,23 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      # Run the complete runtime suite with Bun's source coverage enabled.
+      # Run the complete runtime suite with explicit text + LCOV reporters.
+      # The package script also pins the output directory to ./coverage so the
+      # artifact path below never depends on Bun's implicit reporter defaults.
       - name: Run coverage suite
         run: bun run test:coverage
 
+      # Fail with a focused diagnostic if Bun did not emit the persistent LCOV
+      # report. This keeps artifact errors from obscuring the real problem.
+      - name: Verify LCOV report
+        shell: bash
+        run: |
+          test -s coverage/lcov.info
+          echo "LCOV size: $(wc -c < coverage/lcov.info) bytes"
+          echo "Covered source files: $(grep -c '^SF:' coverage/lcov.info)"
+
       # Preserve the machine-readable LCOV report for external inspection.
       - name: Upload LCOV report
-        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: coverage-lcov-${{ github.run_id }}
