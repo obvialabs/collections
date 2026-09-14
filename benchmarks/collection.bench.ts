@@ -1,4 +1,4 @@
-import { collect, createCollection } from "../dist/index.js"
+import { collect } from "../dist/index.js"
 
 type BenchmarkResult = {
     name: string
@@ -180,24 +180,26 @@ for (const size of sizes) {
     )
 }
 
-const defined = createCollection({
+const defined = collect({
     canvas: { title: "Canvas" },
     automation: { title: "Automation" },
     security: { title: "Security" },
 })
 
+const definedObject = defined.toObject()
+
 cases.push(
     {
-        name: "defined / direct property lookup",
+        name: "object source / toObject property lookup",
         size: LOOKUP_ITERATIONS,
         run: () => {
             for (let index = 0; index < LOOKUP_ITERATIONS; index += 1) {
-                sink += defined.security.title.length
+                sink += definedObject.security.title.length
             }
         },
     },
     {
-        name: "defined / get(key) lookup",
+        name: "object source / get(key) lookup",
         size: LOOKUP_ITERATIONS,
         run: () => {
             for (let index = 0; index < LOOKUP_ITERATIONS; index += 1) {
