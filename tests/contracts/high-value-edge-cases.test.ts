@@ -223,16 +223,36 @@ describe("high-value edge-case contracts", () => {
 
     test("pipeThrough supports arbitrary callback counts at runtime", () => {
         const source = collect([1, 2])
+        const calls: number[] = []
         const callbacks = [
-            (value: any) => value.sum(),
-            (value: any) => value + 1,
-            (value: any) => value * 2,
-            (value: any) => value - 1,
-            (value: any) => value * 3,
-            (value: any) => value + 4,
+            (value: any) => {
+                calls.push(1)
+                return value.sum()
+            },
+            (value: any) => {
+                calls.push(2)
+                return value + 1
+            },
+            (value: any) => {
+                calls.push(3)
+                return value * 2
+            },
+            (value: any) => {
+                calls.push(4)
+                return value - 1
+            },
+            (value: any) => {
+                calls.push(5)
+                return value * 3
+            },
+            (value: any) => {
+                calls.push(6)
+                return value + 4
+            },
         ] as const
 
-        expect(source.pipeThrough(callbacks)).toBe(31)
+        expect(source.pipeThrough(callbacks)).toBe(25)
+        expect(calls).toEqual([1, 2, 3, 4, 5, 6])
     })
 
     test("empty conditional helpers preserve identity when neither selected callback changes the collection", () => {
