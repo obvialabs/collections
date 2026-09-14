@@ -406,6 +406,64 @@ hasAll(keys: Iterable<TKey>): boolean
 users.hasAll(["ada", "grace"])
 ```
 
+### `before`
+
+Returns the value immediately before the first strict value or predicate match.
+
+**Behavior:** value or `undefined`. Value matching uses `Object.is`; predicate matching stops at the first match; no predecessor or no match returns `undefined`.
+```ts
+before(value: TValue): TValue | undefined
+before(predicate: (value: TValue, key: TKey) => boolean): TValue | undefined
+```
+
+```ts
+collect([10, 20, 30]).before(20) // 10
+collect([10, 20, 30]).before((value) => value > 20) // 20
+```
+
+### `after`
+
+Returns the value immediately after the first strict value or predicate match.
+
+**Behavior:** value or `undefined`. Value matching uses `Object.is`; the predicate is not evaluated after the first match; no successor or no match returns `undefined`.
+```ts
+after(value: TValue): TValue | undefined
+after(predicate: (value: TValue, key: TKey) => boolean): TValue | undefined
+```
+
+```ts
+collect([10, 20, 30]).after(20) // 30
+collect([10, 20, 30]).after((value) => value >= 20) // 30
+```
+
+### `hasMany`
+
+Checks whether at least two items exist, optionally after applying a predicate.
+
+**Behavior:** boolean. Without a predicate this is a cardinality check; with a predicate iteration short-circuits on the second match.
+```ts
+hasMany(predicate?: (value: TValue, key: TKey) => boolean): boolean
+```
+
+```ts
+collect([1, 2]).hasMany() // true
+collect([1, 2, 3, 4]).hasMany((value) => value % 2 === 0) // true
+```
+
+### `hasSole`
+
+Checks whether exactly one item exists, optionally after applying a predicate.
+
+**Behavior:** boolean. Predicate evaluation stops as soon as a second match proves that the result cannot be sole.
+```ts
+hasSole(predicate?: (value: TValue, key: TKey) => boolean): boolean
+```
+
+```ts
+collect([1]).hasSole() // true
+collect([1, 2, 3]).hasSole((value) => value > 2) // true
+```
+
 ### `search`
 
 Returns the key of the first value equal to the supplied value, or the first value matching a predicate.
@@ -432,6 +490,20 @@ first(predicate?): TValue | undefined
 
 ```ts
 collect([10, 20, 30]).first((value) => value > 10) // 20
+```
+
+### `firstWhere`
+
+Returns the first item whose typed nested path strictly equals an expected value.
+
+**Behavior:** value or `undefined`. Equality uses `Object.is` and the scan short-circuits at the first match.
+```ts
+firstWhere(path, expected): TValue | undefined
+```
+
+```ts
+users.firstWhere("profile.status", "active")
+collect([{ score: Number.NaN }]).firstWhere("score", Number.NaN)
 ```
 
 ### `firstOrFail`
@@ -545,6 +617,52 @@ map<TMapped>(callback): Collection<TKey, TMapped>
 collect([1, 2, 3]).map((value) => value * 2).items() // [2, 4, 6]
 ```
 
+### `mapInto`
+
+Constructs one class instance for each entry using the current value and key.
+
+**Behavior:** preserves keys. Each constructor receives `(value, key)` exactly once per source entry.
+```ts
+mapInto<TInstance>(constructor): Collection<TKey, TInstance>
+```
+
+```ts
+class UserRow {
+    constructor(readonly user: User, readonly key: string) {}
+}
+
+users.mapInto(UserRow)
+```
+
+### `mapSpread`
+
+Maps tuple-like collection values by spreading tuple members and then appending the source key.
+
+**Behavior:** preserves keys. Intended for `Collection<TKey, readonly unknown[]>`; callback arguments are `...tuple, key`.
+```ts
+mapSpread<TMapped>(callback): Collection<TKey, TMapped>
+```
+
+```ts
+collect(new Map([["a", [2, 3] as const]]))
+    .mapSpread((left, right, key) => `${key}:${left + right}`)
+    .get("a") // "a:5"
+```
+
+### `mapToGroups`
+
+Maps each entry to one group key/value pair and groups mapped values by that key.
+
+**Behavior:** group keys preserve first-seen order; values inside each group preserve source order and are reindexed numerically.
+```ts
+mapToGroups<TGroupKey, TMapped>(callback): Collection<TGroupKey, Collection<number, TMapped>>
+```
+
+```ts
+users.mapToGroups((user) => [user.team, user.name] as const)
+// Collection<team, Collection<number, name>>
+```
+
 ### `mapValues`
 
 Semantic alias for `map()` when emphasizing that only values change.
@@ -641,6 +759,86 @@ collapse(): Collection<number, FlattenValue<TValue>>
 
 ```ts
 collect([[1, 2], [3]]).collapse().items() // [1, 2, 3]
+```
+
+### `collapseWithKeys`
+
+Collapses one layer of keyed nested entry sources while preserving their keys.
+
+**Behavior:** nested sources must yield `[key, value]` entries. Duplicate nested keys use `Map` replacement semantics: later values win while the key keeps its first insertion position.
+```ts
+collapseWithKeys(): Collection<TNestedKey, TNestedValue>
+```
+
+```ts
+collect([
+    new Map([["a", 1], ["shared", 10]]),
+    new Map([["b", 2], ["shared", 20]]),
+]).collapseWithKeys().entries()
+// [["a", 1], ["shared", 20], ["b", 2]]
+```
+
+### `multiply`
+
+Repeats the collection values a fixed number of times.
+
+**Behavior:** numeric keys. Source keys are discarded; multiplier must be a non-negative integer; zero returns an empty collection.
+```ts
+multiply(multiplier: number): Collection<number, TValue>
+```
+
+```ts
+collect(["a", "b"]).multiply(2).items()
+// ["a", "b", "a", "b"]
+```
+
+### `dot`
+
+Flattens nested keyed values into dot-notation keys.
+
+**Behavior:** returns `Collection<string, unknown>`. Supports nested records, arrays, maps and collections; string/number keys only; cycles and unrepresentable keys throw. `depth` is a non-negative integer or `Infinity`. Literal dots in source keys are inherently ambiguous in dot notation.
+```ts
+dot(depth?: number): Collection<string, unknown>
+```
+
+```ts
+collect({ user: { profile: { name: "Ada" } } }).dot().entries()
+// [["user.profile.name", "Ada"]]
+
+collect({ user: { profile: { name: "Ada" } } }).dot(1).entries()
+// [["user.profile", { name: "Ada" }]]
+```
+
+### `undot`
+
+Expands dot-notation string or numeric keys into nested objects.
+
+**Behavior:** returns top-level string keys. Path conflicts resolve in source order; generated nested objects use null prototypes to avoid prototype-pollution side effects.
+```ts
+undot(): Collection<string, unknown>
+```
+
+```ts
+collect(new Map([
+    ["user.name", "Ada"],
+    ["user.active", true],
+])).undot().get("user")
+// { name: "Ada", active: true } (null-prototype object)
+```
+
+### `select`
+
+Projects one or more top-level own properties from each collection value.
+
+**Behavior:** preserves collection keys and infers `Pick<TValue, ...>`. Missing or inherited properties are omitted; symbol properties are supported when they are part of `keyof TValue`.
+```ts
+select<K extends keyof TValue>(key: K): Collection<TKey, Pick<TValue, K>>
+select<const K extends readonly (keyof TValue)[]>(keys: K): Collection<TKey, Pick<TValue, K[number]>>
+```
+
+```ts
+users.select(["id", "name"] as const)
+// Collection<TKey, { id: ...; name: ... }>
 ```
 
 ### `pluck`
@@ -799,6 +997,48 @@ whereNotNull(path): Collection<TKey, TValue>
 
 ```ts
 users.whereNotNull("profile.avatar")
+```
+
+### `whereBetween`
+
+Keeps items whose typed nested value lies inside an inclusive range.
+
+**Behavior:** preserves keys. Both boundaries are inclusive and use the package's deterministic comparator; a reversed range matches nothing.
+```ts
+whereBetween(path, range): Collection<TKey, TValue>
+```
+
+```ts
+users.whereBetween("age", [18, 65])
+collect([{ score: 10 }, { score: 20 }]).whereBetween("score", [10, 10]).count() // 1
+```
+
+### `whereNotBetween`
+
+Keeps items whose typed nested value lies outside an inclusive range.
+
+**Behavior:** preserves keys. Values below the minimum or above the maximum are retained using deterministic comparison.
+```ts
+whereNotBetween(path, range): Collection<TKey, TValue>
+```
+
+```ts
+users.whereNotBetween("age", [18, 65])
+```
+
+### `whereInstanceOf`
+
+Narrows values to instances of one class or any class in a supplied list.
+
+**Behavior:** preserves keys and narrows the resulting TypeScript value union. An empty class list returns an empty collection.
+```ts
+whereInstanceOf<TInstance>(type): Collection<TKey, TInstance>
+whereInstanceOf(types): Collection<TKey, Extract<TValue, InstanceType<...>>>
+```
+
+```ts
+const errors = values.whereInstanceOf(Error)
+const known = values.whereInstanceOf([TypeError, RangeError] as const)
 ```
 
 ## Predicates
@@ -1016,6 +1256,22 @@ chunk(size: number): Collection<number, Collection<TKey, TValue>>
 collect([1, 2, 3, 4, 5]).chunk(2).map((chunk) => chunk.items()).items()
 ```
 
+### `chunkWhile`
+
+Builds variable-sized chunks while a continuation predicate remains true.
+
+**Behavior:** numeric outer keys; original keys inside chunks. The first item starts a chunk without invoking the predicate; subsequent calls receive `(value, key, currentChunk)` where `currentChunk` does not yet contain the candidate.
+```ts
+chunkWhile(predicate): Collection<number, Collection<TKey, TValue>>
+```
+
+```ts
+collect([1, 2, 4, 5, 9]).chunkWhile((value, _key, chunk) =>
+    value - (chunk.last() ?? value) <= 1,
+).items().map((chunk) => chunk.items())
+// [[1, 2], [4, 5], [9]]
+```
+
 ### `sliding`
 
 Creates overlapping fixed-size windows with a configurable positive step.
@@ -1042,6 +1298,34 @@ split(groups: number): Collection<number, Collection<TKey, TValue>>
 
 ```ts
 collect([1, 2, 3, 4, 5]).split(2)
+```
+
+### `splitIn`
+
+Splits into groups by filling earlier groups completely before placing the remainder in the final group.
+
+**Behavior:** numeric outer keys; source keys remain inside groups. Unlike `split()`, remainder items are not distributed across early groups.
+```ts
+splitIn(groups: number): Collection<number, Collection<TKey, TValue>>
+```
+
+```ts
+collect([1, 2, 3, 4, 5]).splitIn(2).items().map((group) => group.items())
+// [[1, 2, 3], [4, 5]]
+```
+
+### `forPage`
+
+Returns the positional slice for a one-based page number.
+
+**Behavior:** preserves source keys. `page` and `perPage` must be positive integers; pages beyond the end return an empty collection.
+```ts
+forPage(page: number, perPage: number): Collection<TKey, TValue>
+```
+
+```ts
+collect([10, 20, 30, 40, 50]).forPage(2, 2).items()
+// [30, 40]
 ```
 
 ### `pad`
@@ -1151,6 +1435,33 @@ const highestFirst = users.sortByDesc("profile.score")
 
 // Descending order reverses the scalar comparator, not the order of ties.
 // Equal selected values remain stable.
+```
+
+### `sortDesc`
+
+Sorts values in descending deterministic order while preserving their keys.
+
+**Behavior:** preserves keys. Equal values retain their original relative order.
+```ts
+sortDesc(): Collection<TKey, TValue>
+```
+
+```ts
+collect(new Map([["a", 2], ["b", 3], ["c", 2]])).sortDesc().keys()
+// ["b", "a", "c"]
+```
+
+### `sortKeysUsing`
+
+Sorts entries by their keys using a custom comparator.
+
+**Behavior:** preserves key/value pairs. Comparator equality keeps original relative order under JavaScript's stable sort semantics.
+```ts
+sortKeysUsing(comparator: (left: TKey, right: TKey) => number): Collection<TKey, TValue>
+```
+
+```ts
+collection.sortKeysUsing((left, right) => String(left).localeCompare(String(right)))
 ```
 
 ### `sortKeys`
@@ -1309,6 +1620,34 @@ intersectByKeys(keys: Iterable<TKey>): Collection<TKey, TValue>
 users.intersectByKeys(["ada", "grace"])
 ```
 
+### `diffAssoc`
+
+Keeps entries whose exact key/value pair is absent from another entry iterable.
+
+**Behavior:** preserves source keys. Keys use `Map` identity and values use `Object.is`; a missing key is distinct from a present key whose value is `undefined`.
+```ts
+diffAssoc(entries: Iterable<readonly [TKey, TValue]>): Collection<TKey, TValue>
+```
+
+```ts
+collect(new Map([["a", 1], ["b", 2]])).diffAssoc(new Map([["a", 1]])).keys()
+// ["b"]
+```
+
+### `intersectAssoc`
+
+Keeps entries whose exact key/value pair exists in another entry iterable.
+
+**Behavior:** preserves source keys and order. Both the key and `Object.is` value must match.
+```ts
+intersectAssoc(entries: Iterable<readonly [TKey, TValue]>): Collection<TKey, TValue>
+```
+
+```ts
+collect(new Map([["a", 1], ["b", 2]])).intersectAssoc(new Map([["b", 2]])).entries()
+// [["b", 2]]
+```
+
 ### `union`
 
 Adds entries whose keys do not already exist. Existing entries win.
@@ -1452,6 +1791,48 @@ const next = users.remove("blocked")
 
 ## Combining
 
+### `combine`
+
+Uses this collection's values as keys and another iterable's values as the corresponding values.
+
+**Behavior:** returns `Collection<TValue, TCombined>`. Both sides must have exactly the same number of items or a `RangeError` is thrown; duplicate generated keys use `Map` last-write semantics. The supplied iterable is consumed once.
+```ts
+combine<TCombined>(values: Iterable<TCombined>): Collection<TValue, TCombined>
+```
+
+```ts
+collect(["name", "age"]).combine(["Ada", 37]).entries()
+// [["name", "Ada"], ["age", 37]]
+```
+
+### `concat`
+
+Appends values from another iterable, collection or map while ignoring the appended source's keys.
+
+**Behavior:** existing source keys are retained; appended values receive successive available numeric keys. Neither input is mutated.
+```ts
+concat<TConcat>(source): Collection<TKey | number, TValue | TConcat>
+```
+
+```ts
+collect(new Map([["first", 1]])).concat(new Map([["ignored", 2]])).entries()
+// [["first", 1], [0, 2]]
+```
+
+### `flip`
+
+Swaps every entry's value and key.
+
+**Behavior:** values become keys. Duplicate values collapse with `Map` last-write semantics, while the first insertion position of that key is retained.
+```ts
+flip(): Collection<TValue, TKey>
+```
+
+```ts
+collect(new Map([["a", "x"], ["b", "y"]])).flip().entries()
+// [["x", "a"], ["y", "b"]]
+```
+
 ### `zip`
 
 Combines values by position. Missing positions are represented by `undefined`.
@@ -1506,6 +1887,24 @@ reduce<TResult>(callback, initial): TResult
 const total = collect([1, 2, 3]).reduce((sum, value) => sum + value, 0)
 ```
 
+### `reduceSpread`
+
+Reduces entries while carrying multiple accumulator values as a tuple.
+
+**Behavior:** native tuple result. Reducer receives `...carry, value, key` once per entry and must return an array/tuple of the same accumulator shape; a non-array result throws `TypeError`. Readonly tuples are accepted.
+```ts
+reduceSpread<TCarry extends unknown[]>(callback, ...initial: TCarry): TCarry
+```
+
+```ts
+collect([2, 3, 5]).reduceSpread(
+    (sum, count, value): [number, number] => [sum + value, count + 1],
+    0,
+    0,
+)
+// [10, 3]
+```
+
 ### `each`
 
 Executes a callback for each entry and returns the same collection. Returning `false` stops iteration early.
@@ -1523,6 +1922,21 @@ users.each((user) => {
 })
 
 // Only literal false stops iteration. undefined and other return values continue.
+```
+
+### `eachSpread`
+
+Executes a callback for tuple-like values by spreading tuple members and then appending the source key.
+
+**Behavior:** returns the same collection instance. Literal `false` stops iteration immediately; empty collections do not invoke the callback.
+```ts
+eachSpread(callback): Collection<TKey, TChunk>
+```
+
+```ts
+rows.eachSpread((left, right, key) => {
+    console.log(key, left, right)
+})
 ```
 
 ### `tap`
@@ -1551,6 +1965,40 @@ pipe<TResult>(callback): TResult
 
 ```ts
 const count = users.pipe((collection) => collection.count())
+```
+
+### `pipeInto`
+
+Constructs a class with the current collection as its constructor argument.
+
+**Behavior:** returns the constructed instance and passes the exact same collection instance.
+```ts
+pipeInto<TInstance>(constructor): TInstance
+```
+
+```ts
+class Summary {
+    constructor(readonly users: Collection<string, User>) {}
+}
+
+const summary = users.pipeInto(Summary)
+```
+
+### `pipeThrough`
+
+Passes a value through a sequence of callbacks from left to right.
+
+**Behavior:** an empty callback list returns the same collection; typed tuple overloads infer pipelines up to five stages and arbitrary longer callback arrays are supported with an `unknown` result type.
+```ts
+pipeThrough(callbacks: readonly []): this
+pipeThrough(callbacks: readonly ((value: any) => any)[]): unknown
+```
+
+```ts
+const label = users.pipeThrough([
+    (items: Collection<string, User>) => items.count(),
+    (count: number) => `users:${count}`,
+] as const)
 ```
 
 ### `when`
@@ -1584,6 +2032,58 @@ unless(condition, callback): Collection<TKey, TValue>
 
 ```ts
 users.unless(includeDisabled, (items) => items.whereNot("disabled", true))
+```
+
+### `whenEmpty`
+
+Runs a collection transformation only when the collection is empty.
+
+**Behavior:** selected callback result or the same collection. An optional fallback runs only when the collection is not empty.
+```ts
+whenEmpty(callback, fallback?): Collection<TKey, TValue>
+```
+
+```ts
+users.whenEmpty(() => fallbackUsers)
+```
+
+### `whenNotEmpty`
+
+Runs a collection transformation only when the collection is not empty.
+
+**Behavior:** selected callback result or the same collection. An optional fallback runs only for an empty collection.
+```ts
+whenNotEmpty(callback, fallback?): Collection<TKey, TValue>
+```
+
+```ts
+users.whenNotEmpty((items) => items.take(10))
+```
+
+### `unlessEmpty`
+
+Alias-style conditional that runs a transformation unless the collection is empty.
+
+**Behavior:** equivalent to `whenNotEmpty()` including fallback behavior.
+```ts
+unlessEmpty(callback, fallback?): Collection<TKey, TValue>
+```
+
+```ts
+users.unlessEmpty((items) => items.take(10))
+```
+
+### `unlessNotEmpty`
+
+Alias-style conditional that runs a transformation unless the collection is not empty.
+
+**Behavior:** equivalent to `whenEmpty()` including fallback behavior.
+```ts
+unlessNotEmpty(callback, fallback?): Collection<TKey, TValue>
+```
+
+```ts
+users.unlessNotEmpty(() => fallbackUsers)
 ```
 
 ## Aggregates
@@ -1628,6 +2128,20 @@ average(selector?): number | undefined
 
 ```ts
 orders.average((order) => order.total)
+```
+
+### `percentage`
+
+Returns the percentage of items that satisfy a predicate.
+
+**Behavior:** number or `undefined`. Empty collections return `undefined` without invoking the predicate; precision defaults to 2 and must be an integer, including negative integers for coarser rounding.
+```ts
+percentage(predicate, precision?: number): number | undefined
+```
+
+```ts
+collect([1, 2, 3]).percentage((value) => value > 1) // 66.67
+collect([] as number[]).percentage(() => true) // undefined
 ```
 
 ### `min`

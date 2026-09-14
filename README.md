@@ -386,6 +386,24 @@ const result = query
 
 `tap()` is useful for observation without breaking a chain, while `pipe()` intentionally exits or reshapes the chain based on the callback return value.
 
+### Project and regroup records
+
+Use `select()` when downstream code needs only a stable subset of each record, and `mapToGroups()` when one projection should become grouped output.
+
+```ts
+const summaries = users.select(["id", "name", "team"] as const)
+
+const namesByTeam = users.mapToGroups((user) => [
+    user.team,
+    user.name,
+] as const)
+
+const flattenedSettings = settings.dot()
+const restoredSettings = flattenedSettings.undot()
+```
+
+These operations remain immutable: projection and regrouping never rewrite the source collection.
+
 ### Reconcile keyed data
 
 ```ts
@@ -430,18 +448,18 @@ The table below is intentionally compact. The complete behavior, signatures, exa
 | --- | --- |
 | State & extraction | `count`, `empty`, `notEmpty`, `items`, `all`, `keys`, `entries`, `values` |
 | Conversion | `toArray`, `toMap`, `toObject` |
-| Access & selection | `get`, `getOr`, `has`, `hasAny`, `hasAll`, `search`, `first`, `firstOrFail`, `last`, `lastOrFail`, `sole`, `nth`, `random` |
-| Transformation | `map`, `mapValues`, `mapKeys`, `mapWithKeys`, `flatMap`, `flatten`, `collapse`, `pluck`, `keyBy` |
-| Filtering | `filter`, `reject`, `where`, `whereNot`, `whereIn`, `whereNotIn`, `whereNull`, `whereNotNull` |
+| Access & selection | `get`, `getOr`, `has`, `hasAny`, `hasAll`, `hasMany`, `hasSole`, `before`, `after`, `search`, `first`, `firstWhere`, `firstOrFail`, `last`, `lastOrFail`, `sole`, `nth`, `random` |
+| Transformation | `map`, `mapValues`, `mapKeys`, `mapWithKeys`, `mapInto`, `mapSpread`, `mapToGroups`, `flatMap`, `flatten`, `collapse`, `collapseWithKeys`, `multiply`, `pluck`, `keyBy`, `select`, `dot`, `undot` |
+| Filtering | `filter`, `reject`, `where`, `whereNot`, `whereIn`, `whereNotIn`, `whereNull`, `whereNotNull`, `whereBetween`, `whereNotBetween`, `whereInstanceOf` |
 | Predicates | `contains`, `doesntContain`, `every`, `some` |
-| Subsets & windows | `only`, `except`, `take`, `skip`, `slice`, `takeUntil`, `takeWhile`, `skipUntil`, `skipWhile`, `chunk`, `sliding`, `split`, `pad`, `partition` |
-| Ordering | `reverse`, `shuffle`, `sort`, `sortBy`, `sortByDesc`, `sortKeys`, `sortKeysDesc` |
+| Subsets & windows | `only`, `except`, `take`, `skip`, `slice`, `takeUntil`, `takeWhile`, `skipUntil`, `skipWhile`, `chunk`, `chunkWhile`, `sliding`, `split`, `splitIn`, `forPage`, `pad`, `partition` |
+| Ordering | `reverse`, `shuffle`, `sort`, `sortBy`, `sortByDesc`, `sortDesc`, `sortKeys`, `sortKeysDesc`, `sortKeysUsing` |
 | Grouping | `groupBy`, `countBy` |
-| Sets | `unique`, `duplicates`, `diff`, `intersect`, `diffKeys`, `intersectByKeys`, `union` |
+| Sets | `unique`, `duplicates`, `diff`, `intersect`, `diffAssoc`, `intersectAssoc`, `diffKeys`, `intersectByKeys`, `union` |
 | Immutable updates | `merge`, `replace`, `with`, `append`, `prepend`, `remove` |
-| Combining | `zip`, `crossJoin` |
-| Reduction & flow | `reduce`, `each`, `tap`, `pipe`, `when`, `unless` |
-| Aggregates | `sum`, `avg`, `average`, `min`, `max`, `median`, `mode` |
+| Combining | `combine`, `concat`, `flip`, `zip`, `crossJoin` |
+| Reduction & flow | `reduce`, `reduceSpread`, `each`, `eachSpread`, `tap`, `pipe`, `pipeInto`, `pipeThrough`, `when`, `unless`, `whenEmpty`, `whenNotEmpty`, `unlessEmpty`, `unlessNotEmpty` |
+| Aggregates | `sum`, `avg`, `average`, `percentage`, `min`, `max`, `median`, `mode` |
 | Strings | `join`, `implode` |
 | Iteration | `[Symbol.iterator]` |
 

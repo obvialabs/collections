@@ -4,6 +4,8 @@ All notable changes to `@obvia/collections` are documented in this file.
 
 ## Unreleased
 
+- Added a high-value immutable collection expansion covering adjacency/cardinality queries, variable windows, keyed shaping, association-aware sets, tuple pipelines, range/class filtering, projections, dot paths and conditional flow helpers.
+- Added behavior, guard, property, type-contract and performance coverage for the expanded API surface.
 - Aligned object-record collection behavior with `Object.entries()`: numeric keys normalize to strings, symbol-only properties stay excluded, custom-prototype records are accepted, and structured instances remain rejected.
 - Kept legacy `Object.prototype` member names lookup-only in `createCollection()` so direct-access types match runtime collision behavior.
 - Made `median()` use the package's deterministic numeric ordering when `NaN` is present.
