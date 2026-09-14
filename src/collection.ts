@@ -7,7 +7,7 @@ import {
     assertNonNegativeInteger,
     assertPositiveInteger,
     compareValues,
-    getPathValue,
+    createPathResolver,
 } from "./helpers.js"
 import type {
     CollectionPath,
@@ -112,7 +112,7 @@ export class Collection<
 
     /** Returns all collection values in their current order. */
     public items(): readonly TValue[] {
-        return [...this.#store.values()]
+        return Array.from(this.#store.values())
     }
 
     /** Returns all collection values in their current order. */
@@ -122,12 +122,12 @@ export class Collection<
 
     /** Returns all collection keys in their current order. */
     public keys(): readonly TKey[] {
-        return [...this.#store.keys()]
+        return Array.from(this.#store.keys())
     }
 
     /** Returns all collection entries in their current order. */
     public entries(): readonly (readonly [TKey, TValue])[] {
-        return [...this.#store.entries()]
+        return Array.from(this.#store.entries())
     }
 
     /** Returns a defensive `Map` copy of the collection. */
@@ -137,7 +137,7 @@ export class Collection<
 
     /** Returns a native array containing the collection values. */
     public toArray(): TValue[] {
-        return [...this.#store.values()]
+        return Array.from(this.#store.values())
     }
 
     /**
@@ -623,12 +623,14 @@ export class Collection<
         callback: (value: TValue, key: TKey) => readonly [TGroupKey, TMapped],
     ): Collection<TGroupKey, Collection<number, TMapped>> {
         const groups = new Map<TGroupKey, Map<number, TMapped>>()
+        const keyIterator = this.#store.keys()
 
-        for (const [key, value] of this.#store) {
+        for (const value of this.#store.values()) {
+            const key = keyIterator.next().value as TKey
             const [groupKey, mapped] = callback(value, key)
             let group = groups.get(groupKey)
 
-            if (!group) {
+            if (group === undefined) {
                 group = new Map<number, TMapped>()
                 groups.set(groupKey, group)
             }
@@ -696,7 +698,8 @@ export class Collection<
     public pluck<TPath extends CollectionPath<TValue>>(
         path: TPath,
     ): Collection<TKey, CollectionPathValue<TValue, TPath>> {
-        return this.map((value) => getPathValue(value, path))
+        const resolve = createPathResolver<CollectionPathValue<TValue, TPath>>(path)
+        return this.map((value) => resolve(value))
     }
 
     /** Re-keys the collection using a nested value path. */
@@ -719,8 +722,10 @@ export class Collection<
                 result.set(selector(value, key), value)
             }
         } else {
+            const resolve = createPathResolver<TMappedKey>(selector)
+
             for (const value of this.#store.values()) {
-                result.set(getPathValue(value, selector) as TMappedKey, value)
+                result.set(resolve(value), value)
             }
         }
 
@@ -732,7 +737,8 @@ export class Collection<
         path: TPath,
         expected: CollectionPathValue<TValue, TPath>,
     ): Collection<TKey, TValue> {
-        return this.filter((value) => Object.is(getPathValue(value, path), expected))
+        const resolve = createPathResolver<CollectionPathValue<TValue, TPath>>(path)
+        return this.filter((value) => Object.is(resolve(value), expected))
     }
 
     /** Filters items whose nested value does not strictly equal the expected value. */
@@ -740,7 +746,8 @@ export class Collection<
         path: TPath,
         expected: CollectionPathValue<TValue, TPath>,
     ): Collection<TKey, TValue> {
-        return this.filter((value) => !Object.is(getPathValue(value, path), expected))
+        const resolve = createPathResolver<CollectionPathValue<TValue, TPath>>(path)
+        return this.filter((value) => !Object.is(resolve(value), expected))
     }
 
     /** Filters items whose nested value is included in a provided iterable. */
@@ -749,7 +756,8 @@ export class Collection<
         values: Iterable<CollectionPathValue<TValue, TPath>>,
     ): Collection<TKey, TValue> {
         const accepted = new Set(values)
-        return this.filter((value) => accepted.has(getPathValue(value, path)))
+        const resolve = createPathResolver<CollectionPathValue<TValue, TPath>>(path)
+        return this.filter((value) => accepted.has(resolve(value)))
     }
 
     /** Filters items whose nested value is not included in a provided iterable. */
@@ -758,21 +766,24 @@ export class Collection<
         values: Iterable<CollectionPathValue<TValue, TPath>>,
     ): Collection<TKey, TValue> {
         const rejected = new Set(values)
-        return this.filter((value) => !rejected.has(getPathValue(value, path)))
+        const resolve = createPathResolver<CollectionPathValue<TValue, TPath>>(path)
+        return this.filter((value) => !rejected.has(resolve(value)))
     }
 
     /** Filters items whose nested value is `null` or `undefined`. */
     public whereNull<TPath extends CollectionPath<TValue>>(
         path: TPath,
     ): Collection<TKey, TValue> {
-        return this.filter((value) => getPathValue(value, path) == null)
+        const resolve = createPathResolver<CollectionPathValue<TValue, TPath>>(path)
+        return this.filter((value) => resolve(value) == null)
     }
 
     /** Filters items whose nested value is neither `null` nor `undefined`. */
     public whereNotNull<TPath extends CollectionPath<TValue>>(
         path: TPath,
     ): Collection<TKey, TValue> {
-        return this.filter((value) => getPathValue(value, path) != null)
+        const resolve = createPathResolver<CollectionPathValue<TValue, TPath>>(path)
+        return this.filter((value) => resolve(value) != null)
     }
 
 
@@ -781,7 +792,8 @@ export class Collection<
         path: TPath,
         expected: CollectionPathValue<TValue, TPath>,
     ): TValue | undefined {
-        return this.first((value) => Object.is(getPathValue(value, path), expected))
+        const resolve = createPathResolver<CollectionPathValue<TValue, TPath>>(path)
+        return this.first((value) => Object.is(resolve(value), expected))
     }
 
     /** Filters items whose nested value lies inside an inclusive range. */
@@ -793,9 +805,10 @@ export class Collection<
         ],
     ): Collection<TKey, TValue> {
         const [minimum, maximum] = range
+        const resolve = createPathResolver<CollectionPathValue<TValue, TPath>>(path)
 
         return this.filter((value) => {
-            const selected = getPathValue(value, path)
+            const selected = resolve(value)
             return compareValues(selected, minimum) >= 0
                 && compareValues(selected, maximum) <= 0
         })
@@ -810,9 +823,10 @@ export class Collection<
         ],
     ): Collection<TKey, TValue> {
         const [minimum, maximum] = range
+        const resolve = createPathResolver<CollectionPathValue<TValue, TPath>>(path)
 
         return this.filter((value) => {
-            const selected = getPathValue(value, path)
+            const selected = resolve(value)
             return compareValues(selected, minimum) < 0
                 || compareValues(selected, maximum) > 0
         })
@@ -1251,22 +1265,38 @@ export class Collection<
     public sortBy<TComparable>(
         selector: CollectionPath<TValue> | ((value: TValue, key: TKey) => TComparable),
     ): Collection<TKey, TValue> {
-        // Resolve the selector exactly once per entry. Besides avoiding
-        // repeated path/callback work inside the sort comparator, this keeps
-        // callback behavior deterministic for selectors with observable work.
-        const selected = [...this.#store.entries()].map(([key, value]) => ({
-            key,
-            value,
-            comparable: typeof selector === "function"
-                ? selector(value, key)
-                : getPathValue(value, selector),
-        }))
+        // Resolve the selector exactly once per entry. Building the sortable
+        // records from aligned key/value iterators avoids allocating an entry
+        // tuple for every source item before sorting.
+        const selected = new Array<{
+            key: TKey
+            value: TValue
+            comparable: TComparable
+        }>(this.#store.size)
+        const keyIterator = this.#store.keys()
+        let index = 0
+
+        if (typeof selector === "function") {
+            for (const value of this.#store.values()) {
+                const key = keyIterator.next().value as TKey
+                selected[index] = { key, value, comparable: selector(value, key) }
+                index += 1
+            }
+        } else {
+            const resolve = createPathResolver<TComparable>(selector)
+
+            for (const value of this.#store.values()) {
+                const key = keyIterator.next().value as TKey
+                selected[index] = { key, value, comparable: resolve(value) }
+                index += 1
+            }
+        }
 
         selected.sort((left, right) => compareValues(left.comparable, right.comparable))
 
-        return new Collection(
-            selected.map(({ key, value }) => [key, value] as const),
-        )
+        const result = new Map<TKey, TValue>()
+        for (const { key, value } of selected) result.set(key, value)
+        return collectionFromOwnedMap(result)
     }
 
     /** Sorts collection items descending by a nested value path. */
@@ -1282,19 +1312,35 @@ export class Collection<
     public sortByDesc<TComparable>(
         selector: CollectionPath<TValue> | ((value: TValue, key: TKey) => TComparable),
     ): Collection<TKey, TValue> {
-        const selected = [...this.#store.entries()].map(([key, value]) => ({
-            key,
-            value,
-            comparable: typeof selector === "function"
-                ? selector(value, key)
-                : getPathValue(value, selector),
-        }))
+        const selected = new Array<{
+            key: TKey
+            value: TValue
+            comparable: TComparable
+        }>(this.#store.size)
+        const keyIterator = this.#store.keys()
+        let index = 0
+
+        if (typeof selector === "function") {
+            for (const value of this.#store.values()) {
+                const key = keyIterator.next().value as TKey
+                selected[index] = { key, value, comparable: selector(value, key) }
+                index += 1
+            }
+        } else {
+            const resolve = createPathResolver<TComparable>(selector)
+
+            for (const value of this.#store.values()) {
+                const key = keyIterator.next().value as TKey
+                selected[index] = { key, value, comparable: resolve(value) }
+                index += 1
+            }
+        }
 
         selected.sort((left, right) => compareValues(right.comparable, left.comparable))
 
-        return new Collection(
-            selected.map(({ key, value }) => [key, value] as const),
-        )
+        const result = new Map<TKey, TValue>()
+        for (const { key, value } of selected) result.set(key, value)
+        return collectionFromOwnedMap(result)
     }
 
     /** Sorts collection values in descending deterministic order. */
@@ -1341,19 +1387,36 @@ export class Collection<
         selector: CollectionPath<TValue> | ((value: TValue, key: TKey) => TGroupKey),
     ): Collection<TGroupKey, Collection<TKey, TValue>> {
         const groups = new Map<TGroupKey, Map<TKey, TValue>>()
+        const keyIterator = this.#store.keys()
 
-        for (const [key, value] of this.#store) {
-            const groupKey = typeof selector === "function"
-                ? selector(value, key)
-                : getPathValue(value, selector) as TGroupKey
-            let group = groups.get(groupKey)
+        if (typeof selector === "function") {
+            for (const value of this.#store.values()) {
+                const key = keyIterator.next().value as TKey
+                const groupKey = selector(value, key)
+                let group = groups.get(groupKey)
 
-            if (!group) {
-                group = new Map<TKey, TValue>()
-                groups.set(groupKey, group)
+                if (group === undefined) {
+                    group = new Map<TKey, TValue>()
+                    groups.set(groupKey, group)
+                }
+
+                group.set(key, value)
             }
+        } else {
+            const resolve = createPathResolver<TGroupKey>(selector)
 
-            group.set(key, value)
+            for (const value of this.#store.values()) {
+                const key = keyIterator.next().value as TKey
+                const groupKey = resolve(value)
+                let group = groups.get(groupKey)
+
+                if (group === undefined) {
+                    group = new Map<TKey, TValue>()
+                    groups.set(groupKey, group)
+                }
+
+                group.set(key, value)
+            }
         }
 
         const result = new Map<TGroupKey, Collection<TKey, TValue>>()
@@ -1381,13 +1444,18 @@ export class Collection<
         const counts = new Map<TGroupKey, number>()
 
         if (typeof selector === "function") {
-            for (const [key, value] of this.#store) {
+            const keyIterator = this.#store.keys()
+
+            for (const value of this.#store.values()) {
+                const key = keyIterator.next().value as TKey
                 const groupKey = selector(value, key)
                 counts.set(groupKey, (counts.get(groupKey) ?? 0) + 1)
             }
         } else {
+            const resolve = createPathResolver<TGroupKey>(selector)
+
             for (const value of this.#store.values()) {
-                const groupKey = getPathValue(value, selector) as TGroupKey
+                const groupKey = resolve(value)
                 counts.set(groupKey, (counts.get(groupKey) ?? 0) + 1)
             }
         }
@@ -1919,15 +1987,22 @@ export class Collection<
         precision: number = 2,
     ): number | undefined {
         assertInteger(precision, "Collection percentage precision")
-        if (this.empty()) return undefined
+
+        const total = this.#store.size
+        if (total === 0) return undefined
 
         let matched = 0
-        for (const [key, value] of this.#store) {
+        const keyIterator = this.#store.keys()
+
+        // Keys and values share Map insertion order. Walking both iterators in
+        // lockstep avoids allocating an entry tuple for every visited item.
+        for (const value of this.#store.values()) {
+            const key = keyIterator.next().value as TKey
             if (predicate(value, key)) matched += 1
         }
 
         const factor = 10 ** precision
-        return Math.round((matched / this.count() * 100) * factor) / factor
+        return Math.round((matched / total * 100) * factor) / factor
     }
 
     /** Returns the minimum selected value. */

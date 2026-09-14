@@ -1,24 +1,32 @@
-import type { CollectionPath, CollectionPathValue } from "./types.js"
+/** @internal Compiles a dot-notation path into a reusable value resolver. */
+export function createPathResolver<TResult = unknown>(
+    path: string,
+): (value: unknown) => TResult {
+    const segments = String(path).split(".")
 
-/** @internal Resolves a dot-notation value from an object. */
-export function getPathValue<
-    TValue,
-    TPath extends CollectionPath<TValue>,
->(
-    value: TValue,
-    path: TPath,
-): CollectionPathValue<TValue, TPath> {
-    let current: unknown = value
+    // Most collection paths are a single property. Keep that hot path free of
+    // a per-item segment loop while still preserving optional/nullish access.
+    if (segments.length === 1) {
+        const property = segments[0]!
 
-    for (const segment of String(path).split(".")) {
-        if (current === null || current === undefined) {
-            return undefined as CollectionPathValue<TValue, TPath>
-        }
-
-        current = (current as Record<string, unknown>)[segment]
+        return (value) => value === null || value === undefined
+            ? undefined as TResult
+            : (value as Record<string, unknown>)[property] as TResult
     }
 
-    return current as CollectionPathValue<TValue, TPath>
+    return (value) => {
+        let current: unknown = value
+
+        for (const segment of segments) {
+            if (current === null || current === undefined) {
+                return undefined as TResult
+            }
+
+            current = (current as Record<string, unknown>)[segment]
+        }
+
+        return current as TResult
+    }
 }
 
 /** @internal Compares common JavaScript scalar values in deterministic order. */
