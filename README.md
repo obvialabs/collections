@@ -74,18 +74,19 @@ There is only one creation model to learn: **give `collect()` your data, work th
 
 The benchmark suite is built to produce numbers that can be reproduced rather than marketing estimates. It uses `Bun.nanoseconds()`, warmups, multiple measured samples, median and p95 reporting, explicit GC between samples, native JavaScript baselines, and real 10K / 100K / 1M datasets. Transform benchmarks consume their output so the timed work cannot collapse into a length-only fast path.
 
-A reference GitHub Actions CI run on the 1,000,000-item profile measured:
+The latest recorded GitHub Actions CI run on the 1,000,000-item profile measured:
 
-| Workload | Median | Throughput |
-| --- | ---: | ---: |
-| `Collection.contains(last)` | **2.841 ms** | **351.94M items/sec** |
-| `Collection.sum()` | **2.843 ms** | **351.79M items/sec** |
-| `Collection.toArray()` | **8.717 ms** | **114.72M items/sec** |
-| `Collection.percentage(enabled)` | **11.44 ms** | **87.42M items/sec** |
-| `Collection.countBy(group)` | **36.16 ms** | **27.66M items/sec** |
-| `filter → take → pluck → sum` | **63.81 ms** | **15.67M input items/sec** |
+| Workload | Collection | Equivalent native baseline | Relative |
+| --- | ---: | ---: | ---: |
+| `contains(last)` | **2.456 ms** | `Array.includes`: 2.848 ms | **0.86x** |
+| `sum()` | **2.355 ms** | numeric loop: 1.602 ms | **1.47x** |
+| `filter(even)` | **69.49 ms** | keyed `Map` filter: 76.15 ms | **0.91x** |
+| `map(x2)` | **88.19 ms** | keyed `Map` map: 84.47 ms | **1.04x** |
+| `select(id, score)` | **175.2 ms** | keyed `Map` projection: 170.0 ms | **1.03x** |
+| `filter → take → pluck → sum` | **51.09 ms** | equivalent `Map` pipeline: 55.28 ms | **0.92x** |
+| `get(key)` | **0.297 ms** | `Map.get`: 0.321 ms | **0.93x** |
 
-That last row is a full fluent pipeline over a one-million-record source, not a single primitive operation. The complete benchmark report also includes native baselines, allocation-heavy transforms, ordering/grouping workloads, median/p95 variance, and machine metadata. Key-preserving transforms are compared against equivalent native `Map` workloads rather than allocation-cheaper `Array` transforms, while the raw array baselines remain visible as additional context.
+The pipeline row is a full fluent operation over a one-million-record source, not a single primitive operation. The complete report also includes raw `Array` baselines, construction, conversion, aggregation, ordering/grouping workloads, median/p95 variance, and machine metadata. Key-preserving transforms are compared against equivalent native `Map` workloads rather than allocation-cheaper `Array` transforms, while raw array results remain visible as additional context.
 
 > Performance varies by runtime, runner, dataset shape, and operation. These are measured reference results, not duration guarantees. Run `bun run benchmark:ci` to reproduce the full profile on your own machine or CI runner.
 

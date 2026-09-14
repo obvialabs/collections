@@ -4,6 +4,7 @@ All notable changes to `@obvia/collections` are documented in this file.
 
 ## Unreleased
 
+- Compiled dot-path selectors once per operation instead of reparsing them for every item, added single-property resolver fast paths, reduced key/value entry tuple allocation in grouping/percentage hot paths, tightened `sortBy()` / `sortByDesc()` materialization, and expanded benchmarks with equivalent native `Map` baselines for percentage, countBy, mapToGroups and ordering.
 - Reduced projection and path-selector overhead by preallocating `select()` entry storage, specializing one/two-field projection loops, and avoiding unused key iteration in path-based `keyBy()` / `countBy()` operations. Benchmark baselines now compare key-preserving transforms and lookups against equivalent native `Map` workloads, with 1M grouping coverage added to CI profiling.
 - Replaced the custom `Bun.build()` script with `tsdown` 0.23 for a library-focused build pipeline that emits ESM, CommonJS, declaration files, declaration/source maps, and an unbundled module structure while preserving public JSDoc/docblocks.
 - Moved compile-time-only contracts to `tests/types/*.types.ts` so Bun never executes intentional `@ts-expect-error` expressions such as rejected `collect()` inputs during runtime test discovery.

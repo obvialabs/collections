@@ -308,7 +308,10 @@ function runNumberBenchmarks(size: number): void {
             category: "conversion",
             name: "native Array.from(Map.values())",
             size,
-            run: () => Array.from(nativeMap.values()).length,
+            run: () => {
+                const values = Array.from(nativeMap.values())
+                return values.length + (values[0] ?? 0) + (values.at(-1) ?? 0)
+            },
         },
         {
             id: `numbers.array.collection.${size}`,
@@ -317,7 +320,10 @@ function runNumberBenchmarks(size: number): void {
             size,
             baselineId: `numbers.array.native.${size}`,
             headline: size === 1_000_000,
-            run: () => numberCollection.toArray().length,
+            run: () => {
+                const values = numberCollection.toArray()
+                return values.length + (values[0] ?? 0) + (values.at(-1) ?? 0)
+            },
         },
     ])
 }
@@ -350,11 +356,24 @@ function runRecordBenchmarks(size: number): void {
             },
         },
         {
+            id: `records.percentage.map-native.${size}`,
+            category: "aggregate",
+            name: "native Map percentage(enabled)",
+            size,
+            run: () => {
+                let matched = 0
+                for (const record of recordMap.values()) {
+                    if (record.enabled) matched += 1
+                }
+                return matched / recordMap.size * 100
+            },
+        },
+        {
             id: `records.percentage.collection.${size}`,
             category: "aggregate",
             name: "Collection.percentage(enabled)",
             size,
-            baselineId: `records.percentage.native.${size}`,
+            baselineId: `records.percentage.map-native.${size}`,
             headline: size === 1_000_000,
             run: () => recordCollection.percentage((record) => record.enabled) ?? 0,
         },
@@ -372,11 +391,24 @@ function runRecordBenchmarks(size: number): void {
             },
         },
         {
+            id: `records.countby.map-native.${size}`,
+            category: "grouping",
+            name: "native Map countBy(group)",
+            size,
+            run: () => {
+                const counts = new Map<string, number>()
+                for (const record of recordMap.values()) {
+                    counts.set(record.group, (counts.get(record.group) ?? 0) + 1)
+                }
+                return counts.size
+            },
+        },
+        {
             id: `records.countby.collection.${size}`,
             category: "grouping",
             name: "Collection.countBy(group)",
             size,
-            baselineId: `records.countby.native.${size}`,
+            baselineId: `records.countby.map-native.${size}`,
             headline: size === 1_000_000,
             run: () => recordCollection.countBy("group").count(),
         },
@@ -474,9 +506,12 @@ function runRecordBenchmarks(size: number): void {
             run: () => {
                 const groups = new Map<string, Map<number, BenchmarkRecord>>()
                 for (const [key, record] of recordMap) {
-                    const group = groups.get(record.group)
-                    if (group) group.set(key, record)
-                    else groups.set(record.group, new Map([[key, record]]))
+                    let group = groups.get(record.group)
+                    if (group === undefined) {
+                        group = new Map<number, BenchmarkRecord>()
+                        groups.set(record.group, group)
+                    }
+                    group.set(key, record)
                 }
                 return groups.size
             },
@@ -491,10 +526,31 @@ function runRecordBenchmarks(size: number): void {
             run: () => recordCollection.groupBy("group").count(),
         },
         {
+            id: `records.mapgroups.map-native.${size}`,
+            category: "grouping",
+            name: "native Map mapToGroups(group -> id)",
+            size,
+            run: () => {
+                const groups = new Map<string, Map<number, number>>()
+
+                for (const record of recordMap.values()) {
+                    let group = groups.get(record.group)
+                    if (group === undefined) {
+                        group = new Map<number, number>()
+                        groups.set(record.group, group)
+                    }
+                    group.set(group.size, record.id)
+                }
+
+                return groups.size
+            },
+        },
+        {
             id: `records.mapgroups.collection.${size}`,
             category: "grouping",
             name: "Collection.mapToGroups(group -> id)",
             size,
+            baselineId: `records.mapgroups.map-native.${size}`,
             headline: size === 1_000_000,
             run: () => recordCollection
                 .mapToGroups((record) => [record.group, record.id] as const)
@@ -513,12 +569,43 @@ function runRecordBenchmarks(size: number): void {
                 run: () => records.toSorted((left, right) => left.score - right.score).length,
             },
             {
+                id: `records.sort.map-native.${size}`,
+                category: "ordering",
+                name: "native Map sortBy(score)",
+                size,
+                targetItems: profile.targetSortItems,
+                run: () => {
+                    const selected = new Array<{
+                        key: number
+                        record: BenchmarkRecord
+                        score: number
+                    }>(recordMap.size)
+                    const keyIterator = recordMap.keys()
+                    let index = 0
+
+                    for (const record of recordMap.values()) {
+                        selected[index] = {
+                            key: keyIterator.next().value!,
+                            record,
+                            score: record.score,
+                        }
+                        index += 1
+                    }
+
+                    selected.sort((left, right) => left.score - right.score)
+
+                    const sorted = new Map<number, BenchmarkRecord>()
+                    for (const item of selected) sorted.set(item.key, item.record)
+                    return sorted.size
+                },
+            },
+            {
                 id: `records.sort.collection.${size}`,
                 category: "ordering",
                 name: "Collection.sortBy(score)",
                 size,
                 targetItems: profile.targetSortItems,
-                baselineId: `records.sort.native.${size}`,
+                baselineId: `records.sort.map-native.${size}`,
                 run: () => recordCollection.sortBy("score").count(),
             },
         )
