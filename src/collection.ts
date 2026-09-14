@@ -15,6 +15,13 @@ import type {
     FlattenValue,
 } from "./types.js"
 
+/** Constructor shape used by class-oriented collection transforms. */
+type CollectionConstructor<TArgs extends readonly unknown[], TInstance> =
+    new (...args: TArgs) => TInstance
+
+/** Runtime class shape used by instanceof-based narrowing. */
+type CollectionClass<TInstance> = abstract new (...args: any[]) => TInstance
+
 /**
  * Immutable, fluent, strongly typed collection.
  *
@@ -192,6 +199,62 @@ implements Iterable<[TKey, TValue]> {
         return true
     }
 
+    /** Returns the value immediately before the first matching item. */
+    public before(value: TValue): TValue | undefined
+
+    /** Returns the value immediately before the first item matching a predicate. */
+    public before(
+        predicate: (value: TValue, key: TKey) => boolean,
+    ): TValue | undefined
+
+    public before(
+        valueOrPredicate: TValue | ((value: TValue, key: TKey) => boolean),
+    ): TValue | undefined {
+        let previous: TValue | undefined
+        let hasPrevious = false
+
+        for (const [key, value] of this.#store) {
+            const matches = typeof valueOrPredicate === "function"
+                ? (valueOrPredicate as (value: TValue, key: TKey) => boolean)(value, key)
+                : Object.is(value, valueOrPredicate)
+
+            if (matches) {
+                return hasPrevious ? previous : undefined
+            }
+
+            previous = value
+            hasPrevious = true
+        }
+
+        return undefined
+    }
+
+    /** Returns the value immediately after the first matching item. */
+    public after(value: TValue): TValue | undefined
+
+    /** Returns the value immediately after the first item matching a predicate. */
+    public after(
+        predicate: (value: TValue, key: TKey) => boolean,
+    ): TValue | undefined
+
+    public after(
+        valueOrPredicate: TValue | ((value: TValue, key: TKey) => boolean),
+    ): TValue | undefined {
+        let returnNext = false
+
+        for (const [key, value] of this.#store) {
+            if (returnNext) return value
+
+            const matches = typeof valueOrPredicate === "function"
+                ? (valueOrPredicate as (value: TValue, key: TKey) => boolean)(value, key)
+                : Object.is(value, valueOrPredicate)
+
+            if (matches) returnNext = true
+        }
+
+        return undefined
+    }
+
     /** Returns the first collection value. */
     public first(): TValue | undefined
 
@@ -302,6 +365,36 @@ implements Iterable<[TKey, TValue]> {
         return match as TValue
     }
 
+    /** Determines whether at least two items exist or match a predicate. */
+    public hasMany(
+        predicate?: (value: TValue, key: TKey) => boolean,
+    ): boolean {
+        if (!predicate) return this.count() >= 2
+
+        let matches = 0
+
+        for (const [key, value] of this.#store) {
+            if (predicate(value, key) && ++matches === 2) return true
+        }
+
+        return false
+    }
+
+    /** Determines whether exactly one item exists or matches a predicate. */
+    public hasSole(
+        predicate?: (value: TValue, key: TKey) => boolean,
+    ): boolean {
+        if (!predicate) return this.count() === 1
+
+        let matches = 0
+
+        for (const [key, value] of this.#store) {
+            if (predicate(value, key) && ++matches > 1) return false
+        }
+
+        return matches === 1
+    }
+
     /** Returns every nth item while preserving the original keys. */
     public nth(step: number, offset: number = 0): Collection<TKey, TValue> {
         assertPositiveInteger(step, "Collection nth step")
@@ -385,6 +478,34 @@ implements Iterable<[TKey, TValue]> {
         return this.flatten(1) as Collection<number, FlattenValue<TValue>>
     }
 
+    /** Collapses keyed nested collections while preserving nested keys. */
+    public collapseWithKeys<TNestedKey, TNestedValue>(
+        this: Collection<
+            TKey,
+            Collection<TNestedKey, TNestedValue>
+            | ReadonlyMap<TNestedKey, TNestedValue>
+            | Iterable<readonly [TNestedKey, TNestedValue]>
+        >,
+    ): Collection<TNestedKey, TNestedValue> {
+        const result = new Map<TNestedKey, TNestedValue>()
+
+        for (const source of this.#store.values()) {
+            if (source === null || typeof (source as { [Symbol.iterator]?: unknown })[Symbol.iterator] !== "function") {
+                throw new TypeError("Collection collapseWithKeys values must be keyed entry iterables.")
+            }
+
+            for (const entry of source as Iterable<readonly [TNestedKey, TNestedValue]>) {
+                if (!Array.isArray(entry) || entry.length < 2) {
+                    throw new TypeError("Collection collapseWithKeys values must yield key/value entries.")
+                }
+
+                result.set(entry[0], entry[1])
+            }
+        }
+
+        return new Collection(result)
+    }
+
     /** Maps every value while preserving the original collection keys. */
     public map<TMapped>(
         callback: (value: TValue, key: TKey, collection: this) => TMapped,
@@ -433,6 +554,42 @@ implements Iterable<[TKey, TValue]> {
         }
 
         return new Collection(entries)
+    }
+
+    /** Maps each item into a new class instance. */
+    public mapInto<TInstance>(
+        constructor: CollectionConstructor<readonly [TValue, TKey], TInstance>,
+    ): Collection<TKey, TInstance> {
+        return this.map((value, key) => new constructor(value, key))
+    }
+
+    /** Maps tuple-like values by spreading each tuple and appending its source key. */
+    public mapSpread<TChunk extends readonly unknown[], TMapped>(
+        this: Collection<TKey, TChunk>,
+        callback: (...args: [...TChunk, TKey]) => TMapped,
+    ): Collection<TKey, TMapped> {
+        return this.map((value, key) => callback(...value, key))
+    }
+
+    /** Maps items into key/value pairs and groups mapped values by the returned key. */
+    public mapToGroups<TGroupKey, TMapped>(
+        callback: (value: TValue, key: TKey) => readonly [TGroupKey, TMapped],
+    ): Collection<TGroupKey, Collection<number, TMapped>> {
+        const groups = new Map<TGroupKey, TMapped[]>()
+
+        for (const [key, value] of this.#store) {
+            const [groupKey, mapped] = callback(value, key)
+            const group = groups.get(groupKey) ?? []
+            group.push(mapped)
+            groups.set(groupKey, group)
+        }
+
+        return new Collection(
+            [...groups].map(([groupKey, values]) => [
+                groupKey,
+                new Collection(values.map((value, index) => [index, value] as const)),
+            ] as const),
+        )
     }
 
     /** Filters collection values using a type guard predicate. */
@@ -561,6 +718,69 @@ implements Iterable<[TKey, TValue]> {
         path: TPath,
     ): Collection<TKey, TValue> {
         return this.filter((value) => getPathValue(value, path) != null)
+    }
+
+
+    /** Returns the first item whose nested value strictly equals the expected value. */
+    public firstWhere<TPath extends CollectionPath<TValue>>(
+        path: TPath,
+        expected: CollectionPathValue<TValue, TPath>,
+    ): TValue | undefined {
+        return this.first((value) => Object.is(getPathValue(value, path), expected))
+    }
+
+    /** Filters items whose nested value lies inside an inclusive range. */
+    public whereBetween<TPath extends CollectionPath<TValue>>(
+        path: TPath,
+        range: readonly [
+            CollectionPathValue<TValue, TPath>,
+            CollectionPathValue<TValue, TPath>,
+        ],
+    ): Collection<TKey, TValue> {
+        const [minimum, maximum] = range
+
+        return this.filter((value) => {
+            const selected = getPathValue(value, path)
+            return compareValues(selected, minimum) >= 0
+                && compareValues(selected, maximum) <= 0
+        })
+    }
+
+    /** Filters items whose nested value lies outside an inclusive range. */
+    public whereNotBetween<TPath extends CollectionPath<TValue>>(
+        path: TPath,
+        range: readonly [
+            CollectionPathValue<TValue, TPath>,
+            CollectionPathValue<TValue, TPath>,
+        ],
+    ): Collection<TKey, TValue> {
+        const [minimum, maximum] = range
+
+        return this.filter((value) => {
+            const selected = getPathValue(value, path)
+            return compareValues(selected, minimum) < 0
+                || compareValues(selected, maximum) > 0
+        })
+    }
+
+    /** Narrows collection values to instances of one class. */
+    public whereInstanceOf<TInstance extends TValue>(
+        type: CollectionClass<TInstance>,
+    ): Collection<TKey, TInstance>
+
+    /** Narrows collection values to instances of any provided class. */
+    public whereInstanceOf<const TClasses extends readonly CollectionClass<any>[]>(
+        types: TClasses,
+    ): Collection<TKey, Extract<TValue, InstanceType<TClasses[number]>>>
+
+    public whereInstanceOf(
+        type: CollectionClass<any> | readonly CollectionClass<any>[],
+    ): Collection<TKey, TValue> {
+        const types: readonly CollectionClass<any>[] = Array.isArray(type) ? type : [type]
+
+        return this.filter((value) =>
+            types.some((candidate) => value instanceof candidate),
+        )
     }
 
     /** Determines whether the collection contains a value. */
@@ -751,6 +971,42 @@ implements Iterable<[TKey, TValue]> {
         return new Collection(chunks)
     }
 
+
+    /** Splits the collection whenever a continuation predicate returns false. */
+    public chunkWhile(
+        predicate: (
+            value: TValue,
+            key: TKey,
+            chunk: Collection<TKey, TValue>,
+        ) => boolean,
+    ): Collection<number, Collection<TKey, TValue>> {
+        const chunks: Array<readonly [number, Collection<TKey, TValue>]> = []
+        let current: Array<readonly [TKey, TValue]> = []
+
+        for (const [key, value] of this.#store) {
+            if (current.length === 0) {
+                current.push([key, value])
+                continue
+            }
+
+            const currentCollection = new Collection<TKey, TValue>(current)
+
+            if (predicate(value, key, currentCollection)) {
+                current.push([key, value])
+                continue
+            }
+
+            chunks.push([chunks.length, currentCollection])
+            current = [[key, value]]
+        }
+
+        if (current.length > 0) {
+            chunks.push([chunks.length, new Collection(current)])
+        }
+
+        return new Collection(chunks)
+    }
+
     /** Creates overlapping sliding windows from the collection. */
     public sliding(
         size: number,
@@ -795,6 +1051,24 @@ implements Iterable<[TKey, TValue]> {
         }
 
         return new Collection(result)
+    }
+
+
+    /** Splits into groups by completely filling earlier groups first. */
+    public splitIn(groups: number): Collection<number, Collection<TKey, TValue>> {
+        assertPositiveInteger(groups, "Collection splitIn groups")
+
+        if (this.empty()) return new Collection()
+
+        return this.chunk(Math.ceil(this.count() / groups))
+    }
+
+    /** Returns the positional slice represented by a one-based page number. */
+    public forPage(page: number, perPage: number): Collection<TKey, TValue> {
+        assertPositiveInteger(page, "Collection page")
+        assertPositiveInteger(perPage, "Collection perPage")
+
+        return this.slice((page - 1) * perPage, perPage)
     }
 
     /** Pads the collection values to the requested absolute size. */
@@ -959,10 +1233,26 @@ implements Iterable<[TKey, TValue]> {
         )
     }
 
+    /** Sorts collection values in descending deterministic order. */
+    public sortDesc(): Collection<TKey, TValue> {
+        return new Collection(
+            [...this.#store.entries()].sort(([, left], [, right]) => compareValues(right, left)),
+        )
+    }
+
     /** Sorts collection items by their keys in ascending order. */
     public sortKeys(): Collection<TKey, TValue> {
         return new Collection(
             [...this.#store.entries()].sort(([left], [right]) => compareValues(left, right)),
+        )
+    }
+
+    /** Sorts collection keys using a custom comparator. */
+    public sortKeysUsing(
+        comparator: (left: TKey, right: TKey) => number,
+    ): Collection<TKey, TValue> {
+        return new Collection(
+            [...this.#store.entries()].sort(([left], [right]) => comparator(left, right)),
         )
     }
 
@@ -1083,6 +1373,29 @@ implements Iterable<[TKey, TValue]> {
         return this.filter((value) => other.has(value))
     }
 
+
+    /** Returns entries whose exact key/value pair is absent from another collection. */
+    public diffAssoc(
+        entries: Iterable<readonly [TKey, TValue]>,
+    ): Collection<TKey, TValue> {
+        const other = new Map(entries)
+
+        return this.filter((value, key) =>
+            !other.has(key) || !Object.is(other.get(key), value),
+        )
+    }
+
+    /** Returns entries whose exact key/value pair is present in another collection. */
+    public intersectAssoc(
+        entries: Iterable<readonly [TKey, TValue]>,
+    ): Collection<TKey, TValue> {
+        const other = new Map(entries)
+
+        return this.filter((value, key) =>
+            other.has(key) && Object.is(other.get(key), value),
+        )
+    }
+
     /** Adds entries whose keys do not already exist in the collection. */
     public union(
         entries: Iterable<readonly [TKey, TValue]>,
@@ -1093,6 +1406,94 @@ implements Iterable<[TKey, TValue]> {
             if (!result.has(key)) {
                 result.set(key, value)
             }
+        }
+
+        return new Collection(result)
+    }
+
+
+    /** Uses this collection's values as keys for another iterable's values. */
+    public combine<TCombined>(
+        values: Iterable<TCombined>,
+    ): Collection<TValue, TCombined> {
+        const iterator = values[Symbol.iterator]()
+        const entries: Array<readonly [TValue, TCombined]> = []
+
+        for (const key of this.#store.values()) {
+            const next = iterator.next()
+
+            if (next.done) {
+                throw new RangeError("Collection combine requires the same number of keys and values.")
+            }
+
+            entries.push([key, next.value])
+        }
+
+        if (!iterator.next().done) {
+            throw new RangeError("Collection combine requires the same number of keys and values.")
+        }
+
+        return new Collection(entries)
+    }
+
+    /** Swaps collection values and keys. Duplicate values use last-write semantics. */
+    public flip(): Collection<TValue, TKey> {
+        return new Collection(
+            [...this.#store.entries()].map(([key, value]) => [value, key] as const),
+        )
+    }
+
+    /** Repeats collection values the requested number of times with numeric keys. */
+    public multiply(multiplier: number): Collection<number, TValue> {
+        assertNonNegativeInteger(multiplier, "Collection multiply multiplier")
+
+        const entries: Array<readonly [number, TValue]> = []
+
+        for (let iteration = 0; iteration < multiplier; iteration += 1) {
+            for (const value of this.#store.values()) {
+                entries.push([entries.length, value])
+            }
+        }
+
+        return new Collection(entries)
+    }
+
+    /** Appends all source values while ignoring source keys. */
+    public concat<TConcat>(
+        source: Iterable<TConcat>
+        | Collection<unknown, TConcat>
+        | ReadonlyMap<unknown, TConcat>,
+    ): Collection<TKey | number, TValue | TConcat> {
+        const result = new Map<TKey | number, TValue | TConcat>(
+            this.#store as ReadonlyMap<TKey | number, TValue | TConcat>,
+        )
+        const numericKeys = new Set<number>()
+        let largestNumericKey: number | undefined
+
+        for (const key of result.keys()) {
+            if (typeof key !== "number" || !Number.isFinite(key)) continue
+            numericKeys.add(key)
+            if (largestNumericKey === undefined || key > largestNumericKey) {
+                largestNumericKey = key
+            }
+        }
+
+        let nextKey = largestNumericKey === undefined ? 0 : largestNumericKey + 1
+        const values: Iterable<TConcat> = source instanceof Collection
+            ? source.#store.values() as Iterable<TConcat>
+            : source instanceof Map
+                ? source.values()
+                : source as Iterable<TConcat>
+
+        for (const value of values) {
+            if (!Number.isFinite(nextKey) || numericKeys.has(nextKey)) {
+                nextKey = 0
+                while (numericKeys.has(nextKey)) nextKey += 1
+            }
+
+            result.set(nextKey, value)
+            numericKeys.add(nextKey)
+            nextKey += 1
         }
 
         return new Collection(result)
@@ -1230,12 +1631,46 @@ implements Iterable<[TKey, TValue]> {
         return carry
     }
 
+
+    /** Reduces the collection into multiple tuple-like accumulator values. */
+    public reduceSpread<TCarry extends unknown[]>(
+        callback: (...args: [...TCarry, TValue, TKey]) => TCarry | readonly [...TCarry],
+        ...initial: TCarry
+    ): TCarry {
+        let carry = initial
+
+        for (const [key, value] of this.#store) {
+            const next = callback(...carry, value, key)
+
+            if (!Array.isArray(next)) {
+                throw new TypeError("Collection reduceSpread reducer must return an array or tuple.")
+            }
+
+            carry = [...next] as TCarry
+        }
+
+        return carry
+    }
+
     /** Executes a callback for every item and returns the original collection. */
     public each(
         callback: (value: TValue, key: TKey, collection: this) => void | boolean,
     ): this {
         for (const [key, value] of this.#store) {
             if (callback(value, key, this) === false) break
+        }
+
+        return this
+    }
+
+
+    /** Executes a callback for tuple-like values by spreading the tuple and source key. */
+    public eachSpread<TChunk extends readonly unknown[]>(
+        this: Collection<TKey, TChunk>,
+        callback: (...args: [...TChunk, TKey]) => void | boolean,
+    ): Collection<TKey, TChunk> {
+        for (const [key, value] of this.#store) {
+            if (callback(...value, key) === false) break
         }
 
         return this
@@ -1252,6 +1687,67 @@ implements Iterable<[TKey, TValue]> {
         return callback(this)
     }
 
+
+    /** Constructs a class instance with this collection as its constructor argument. */
+    public pipeInto<TInstance>(
+        constructor: CollectionConstructor<readonly [Collection<TKey, TValue>], TInstance>,
+    ): TInstance {
+        return new constructor(this)
+    }
+
+    /** Returns this collection unchanged when no pipe callbacks are provided. */
+    public pipeThrough(callbacks: readonly []): this
+
+    /** Pipes through one callback with inferred output. */
+    public pipeThrough<T1>(callbacks: readonly [
+        (value: Collection<TKey, TValue>) => T1,
+    ]): T1
+
+    /** Pipes through two callbacks with inferred output. */
+    public pipeThrough<T1, T2>(callbacks: readonly [
+        (value: Collection<TKey, TValue>) => T1,
+        (value: T1) => T2,
+    ]): T2
+
+    /** Pipes through three callbacks with inferred output. */
+    public pipeThrough<T1, T2, T3>(callbacks: readonly [
+        (value: Collection<TKey, TValue>) => T1,
+        (value: T1) => T2,
+        (value: T2) => T3,
+    ]): T3
+
+    /** Pipes through four callbacks with inferred output. */
+    public pipeThrough<T1, T2, T3, T4>(callbacks: readonly [
+        (value: Collection<TKey, TValue>) => T1,
+        (value: T1) => T2,
+        (value: T2) => T3,
+        (value: T3) => T4,
+    ]): T4
+
+    /** Pipes through five callbacks with inferred output. */
+    public pipeThrough<T1, T2, T3, T4, T5>(callbacks: readonly [
+        (value: Collection<TKey, TValue>) => T1,
+        (value: T1) => T2,
+        (value: T2) => T3,
+        (value: T3) => T4,
+        (value: T4) => T5,
+    ]): T5
+
+    /** Pipes through an arbitrary callback list when exact tuple inference is unavailable. */
+    public pipeThrough(callbacks: readonly ((value: any) => any)[]): unknown
+
+    public pipeThrough(
+        callbacks: readonly ((value: any) => any)[],
+    ): unknown {
+        let result: unknown = this
+
+        for (const callback of callbacks) {
+            result = callback(result)
+        }
+
+        return result
+    }
+
     /** Conditionally transforms the collection. */
     public when(
         condition: boolean,
@@ -1266,6 +1762,41 @@ implements Iterable<[TKey, TValue]> {
         callback: (collection: this) => Collection<TKey, TValue>,
     ): Collection<TKey, TValue> {
         return condition ? this : callback(this)
+    }
+
+
+    /** Applies a callback only when the collection is empty. */
+    public whenEmpty(
+        callback: (collection: this) => Collection<TKey, TValue>,
+        fallback?: (collection: this) => Collection<TKey, TValue>,
+    ): Collection<TKey, TValue> {
+        if (this.empty()) return callback(this)
+        return fallback ? fallback(this) : this
+    }
+
+    /** Applies a callback only when the collection is not empty. */
+    public whenNotEmpty(
+        callback: (collection: this) => Collection<TKey, TValue>,
+        fallback?: (collection: this) => Collection<TKey, TValue>,
+    ): Collection<TKey, TValue> {
+        if (this.notEmpty()) return callback(this)
+        return fallback ? fallback(this) : this
+    }
+
+    /** Alias for applying a callback unless the collection is empty. */
+    public unlessEmpty(
+        callback: (collection: this) => Collection<TKey, TValue>,
+        fallback?: (collection: this) => Collection<TKey, TValue>,
+    ): Collection<TKey, TValue> {
+        return this.whenNotEmpty(callback, fallback)
+    }
+
+    /** Alias for applying a callback unless the collection is not empty. */
+    public unlessNotEmpty(
+        callback: (collection: this) => Collection<TKey, TValue>,
+        fallback?: (collection: this) => Collection<TKey, TValue>,
+    ): Collection<TKey, TValue> {
+        return this.whenEmpty(callback, fallback)
     }
 
     /** Sums numeric values resolved by a callback. */
@@ -1292,6 +1823,24 @@ implements Iterable<[TKey, TValue]> {
         return this.empty()
             ? undefined
             : this.sum(selector) / this.count()
+    }
+
+
+    /** Returns the percentage of items matching a predicate. */
+    public percentage(
+        predicate: (value: TValue, key: TKey) => boolean,
+        precision: number = 2,
+    ): number | undefined {
+        assertInteger(precision, "Collection percentage precision")
+        if (this.empty()) return undefined
+
+        let matched = 0
+        for (const [key, value] of this.#store) {
+            if (predicate(value, key)) matched += 1
+        }
+
+        const factor = 10 ** precision
+        return Math.round((matched / this.count() * 100) * factor) / factor
     }
 
     /** Returns the minimum selected value. */
@@ -1365,6 +1914,169 @@ implements Iterable<[TKey, TValue]> {
         return [...frequencies]
             .filter(([, frequency]) => frequency === highest)
             .map(([value]) => value)
+    }
+
+    /** Flattens nested keyed values into dot-notation keys. */
+    public dot(depth: number = Number.POSITIVE_INFINITY): Collection<string, unknown> {
+        if (
+            depth !== Number.POSITIVE_INFINITY
+            && (!Number.isInteger(depth) || depth < 0)
+        ) {
+            throw new RangeError("Collection dot depth must be a non-negative integer or Infinity.")
+        }
+
+        type DotNode = {
+            readonly key: PropertyKey
+            readonly value: unknown
+            readonly level: number
+            readonly ancestors: ReadonlySet<object>
+        }
+
+        const keyedEntries = (value: unknown): readonly (readonly [PropertyKey, unknown])[] | undefined => {
+            if (value instanceof Collection) return value.entries()
+            if (value instanceof Map) return [...value.entries()]
+            if (Array.isArray(value)) {
+                return value.map((item, index) => [index, item] as const)
+            }
+
+            if (value === null || typeof value !== "object" || value instanceof Date || value instanceof RegExp) {
+                return undefined
+            }
+
+            return Object.entries(value)
+        }
+
+        const output: Array<readonly [string, unknown]> = []
+        const stack: DotNode[] = [...this.#store.entries()]
+            .reverse()
+            .map(([key, value]) => ({
+                key: key as PropertyKey,
+                value,
+                level: 0,
+                ancestors: new Set<object>(),
+            }))
+
+        while (stack.length > 0) {
+            const node = stack.pop()!
+            if (typeof node.key !== "string" && typeof node.key !== "number") {
+                throw new TypeError("Collection dot keys must be strings or numbers.")
+            }
+
+            const path = String(node.key)
+            const nested = node.level < depth ? keyedEntries(node.value) : undefined
+
+            if (nested && nested.length > 0) {
+                if (typeof node.value === "object" && node.value !== null) {
+                    if (node.ancestors.has(node.value)) {
+                        throw new TypeError("Collection dot cannot flatten cyclic values.")
+                    }
+                }
+
+                const ancestors = new Set(node.ancestors)
+                if (typeof node.value === "object" && node.value !== null) {
+                    ancestors.add(node.value)
+                }
+
+                for (let index = nested.length - 1; index >= 0; index -= 1) {
+                    const [nestedKey, nestedValue] = nested[index]!
+                    if (typeof nestedKey !== "string" && typeof nestedKey !== "number") {
+                        throw new TypeError("Collection dot keys must be strings or numbers.")
+                    }
+
+                    stack.push({
+                        key: `${path}.${String(nestedKey)}`,
+                        value: nestedValue,
+                        level: node.level + 1,
+                        ancestors,
+                    })
+                }
+
+                continue
+            }
+
+            output.push([path, node.value])
+        }
+
+        return new Collection(output)
+    }
+
+    /** Expands dot-notation keys into nested object values. */
+    public undot(
+        this: Collection<TKey, TValue>,
+    ): Collection<string, unknown> {
+        const root = new Map<string, unknown>()
+
+        for (const [rawKey, value] of this.#store) {
+            if (typeof rawKey !== "string" && typeof rawKey !== "number") {
+                throw new TypeError("Collection undot keys must be strings or numbers.")
+            }
+
+            const parts = String(rawKey).split(".")
+            const top = parts.shift()!
+
+            if (parts.length === 0) {
+                root.set(top, value)
+                continue
+            }
+
+            let current = root.get(top)
+            if (current === null || typeof current !== "object" || Array.isArray(current)) {
+                current = Object.create(null) as Record<string, unknown>
+                root.set(top, current)
+            }
+
+            let object = current as Record<string, unknown>
+
+            while (parts.length > 1) {
+                const segment = parts.shift()!
+                const existing = object[segment]
+
+                if (existing === null || typeof existing !== "object" || Array.isArray(existing)) {
+                    object[segment] = Object.create(null) as Record<string, unknown>
+                }
+
+                object = object[segment] as Record<string, unknown>
+            }
+
+            object[parts[0]!] = value
+        }
+
+        return new Collection(root)
+    }
+
+    /** Projects selected top-level properties from every collection value. */
+    public select<TSelected extends keyof TValue>(
+        key: TSelected,
+    ): Collection<TKey, Pick<TValue, TSelected>>
+
+    /** Projects selected top-level properties from every collection value. */
+    public select<const TSelected extends readonly (keyof TValue)[]>(
+        keys: TSelected,
+    ): Collection<TKey, Pick<TValue, TSelected[number]>>
+
+    public select(
+        keys: keyof TValue | readonly (keyof TValue)[],
+    ): Collection<TKey, any> {
+        const selected = Array.isArray(keys) ? keys : [keys]
+
+        return this.map((value) => {
+            const result: Partial<TValue> = {}
+
+            if ((typeof value !== "object" && typeof value !== "function") || value === null) {
+                return result
+            }
+
+            const source = value as Record<PropertyKey, unknown>
+            const target = result as Record<PropertyKey, unknown>
+
+            for (const key of selected as readonly PropertyKey[]) {
+                if (Object.prototype.hasOwnProperty.call(source, key)) {
+                    target[key] = source[key]
+                }
+            }
+
+            return result
+        })
     }
 
     /** Joins collection values into a string with optional final glue. */
