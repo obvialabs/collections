@@ -246,11 +246,24 @@ function runNumberBenchmarks(size: number): void {
             },
         },
         {
+            id: `numbers.filter.map-native.${size}`,
+            category: "transform",
+            name: "native Map filter(even)",
+            size,
+            run: () => {
+                const filtered = new Map<number, number>()
+                for (const [key, value] of nativeMap) {
+                    if (value % 2 === 0) filtered.set(key, value)
+                }
+                return filtered.size + (filtered.get(1) ?? 0) + (filtered.get(size - 1) ?? 0)
+            },
+        },
+        {
             id: `numbers.filter.collection.${size}`,
             category: "transform",
             name: "Collection.filter(even)",
             size,
-            baselineId: `numbers.filter.native.${size}`,
+            baselineId: `numbers.filter.map-native.${size}`,
             headline: size === 1_000_000,
             run: () => {
                 const filtered = numberCollection.filter((value) => value % 2 === 0)
@@ -268,11 +281,22 @@ function runNumberBenchmarks(size: number): void {
             },
         },
         {
+            id: `numbers.map.map-native.${size}`,
+            category: "transform",
+            name: "native Map map(x2)",
+            size,
+            run: () => {
+                const mapped = new Map<number, number>()
+                for (const [key, value] of nativeMap) mapped.set(key, value * 2)
+                return mapped.size + (mapped.get(0) ?? 0) + (mapped.get(size - 1) ?? 0)
+            },
+        },
+        {
             id: `numbers.map.collection.${size}`,
             category: "transform",
             name: "Collection.map(x2)",
             size,
-            baselineId: `numbers.map.native.${size}`,
+            baselineId: `numbers.map.map-native.${size}`,
             headline: size === 1_000_000,
             run: () => {
                 const mapped = numberCollection.map((value) => value * 2)
@@ -309,6 +333,7 @@ function runRecordBenchmarks(size: number): void {
         region: regionNames[index % regionNames.length]!,
     }))
     const recordCollection = collect(records)
+    const recordMap = new Map(records.map((record, index) => [index, record] as const))
 
     const cases: BenchmarkCase[] = [
         {
@@ -366,11 +391,24 @@ function runRecordBenchmarks(size: number): void {
             },
         },
         {
+            id: `records.select.map-native.${size}`,
+            category: "projection",
+            name: "native Map project(id, score)",
+            size,
+            run: () => {
+                const projected = new Map<number, { id: number; score: number }>()
+                for (const [key, record] of recordMap) {
+                    projected.set(key, { id: record.id, score: record.score })
+                }
+                return projected.size + projected.get(0)!.score + projected.get(size - 1)!.score
+            },
+        },
+        {
             id: `records.select.collection.${size}`,
             category: "projection",
             name: "Collection.select(id, score)",
             size,
-            baselineId: `records.select.native.${size}`,
+            baselineId: `records.select.map-native.${size}`,
             headline: size === 1_000_000,
             run: () => {
                 const projected = recordCollection.select(["id", "score"] as const)
@@ -388,11 +426,36 @@ function runRecordBenchmarks(size: number): void {
                 .reduce((total, record) => total + record.score, 0),
         },
         {
+            id: `records.pipeline.map-native.${size}`,
+            category: "pipeline",
+            name: "native Map filter + take + pluck + sum",
+            size,
+            run: () => {
+                const filtered = new Map<number, BenchmarkRecord>()
+                for (const [key, record] of recordMap) {
+                    if (record.enabled) filtered.set(key, record)
+                }
+
+                const taken = new Map<number, BenchmarkRecord>()
+                for (const [key, record] of filtered) {
+                    taken.set(key, record)
+                    if (taken.size === 1_000) break
+                }
+
+                const scores = new Map<number, number>()
+                for (const [key, record] of taken) scores.set(key, record.score)
+
+                let total = 0
+                for (const score of scores.values()) total += score
+                return total
+            },
+        },
+        {
             id: `records.pipeline.collection.${size}`,
             category: "pipeline",
             name: "Collection filter + take + pluck + sum",
             size,
-            baselineId: `records.pipeline.native.${size}`,
+            baselineId: `records.pipeline.map-native.${size}`,
             headline: size === 1_000_000,
             run: () => recordCollection
                 .filter((record) => record.enabled)
@@ -402,31 +465,45 @@ function runRecordBenchmarks(size: number): void {
         },
     ]
 
+    cases.push(
+        {
+            id: `records.groupby.native.${size}`,
+            category: "grouping",
+            name: "native Map groupBy(group)",
+            size,
+            run: () => {
+                const groups = new Map<string, Map<number, BenchmarkRecord>>()
+                for (const [key, record] of recordMap) {
+                    const group = groups.get(record.group)
+                    if (group) group.set(key, record)
+                    else groups.set(record.group, new Map([[key, record]]))
+                }
+                return groups.size
+            },
+        },
+        {
+            id: `records.groupby.collection.${size}`,
+            category: "grouping",
+            name: "Collection.groupBy(group)",
+            size,
+            baselineId: `records.groupby.native.${size}`,
+            headline: size === 1_000_000,
+            run: () => recordCollection.groupBy("group").count(),
+        },
+        {
+            id: `records.mapgroups.collection.${size}`,
+            category: "grouping",
+            name: "Collection.mapToGroups(group -> id)",
+            size,
+            headline: size === 1_000_000,
+            run: () => recordCollection
+                .mapToGroups((record) => [record.group, record.id] as const)
+                .count(),
+        },
+    )
+
     if (size <= 250_000) {
         cases.push(
-            {
-                id: `records.groupby.native.${size}`,
-                category: "grouping",
-                name: "native groupBy(group)",
-                size,
-                run: () => {
-                    const groups = new Map<string, BenchmarkRecord[]>()
-                    for (const record of records) {
-                        const group = groups.get(record.group)
-                        if (group) group.push(record)
-                        else groups.set(record.group, [record])
-                    }
-                    return groups.size
-                },
-            },
-            {
-                id: `records.groupby.collection.${size}`,
-                category: "grouping",
-                name: "Collection.groupBy(group)",
-                size,
-                baselineId: `records.groupby.native.${size}`,
-                run: () => recordCollection.groupBy("group").count(),
-            },
             {
                 id: `records.sort.native.${size}`,
                 category: "ordering",
@@ -444,15 +521,6 @@ function runRecordBenchmarks(size: number): void {
                 baselineId: `records.sort.native.${size}`,
                 run: () => recordCollection.sortBy("score").count(),
             },
-            {
-                id: `records.mapgroups.collection.${size}`,
-                category: "grouping",
-                name: "Collection.mapToGroups(group -> id)",
-                size,
-                run: () => recordCollection
-                    .mapToGroups((record) => [record.group, record.id] as const)
-                    .count(),
-            },
         )
     }
 
@@ -467,6 +535,7 @@ function runLookupBenchmarks(iterations: number): void {
     } as const
     const collection = collect(source)
     const object = collection.toObject()
+    const map = new Map(Object.entries(source))
 
     runCases([
         {
@@ -485,13 +554,28 @@ function runLookupBenchmarks(iterations: number): void {
             },
         },
         {
+            id: "lookup.map.get",
+            category: "lookup",
+            name: "native Map.get(key) lookup",
+            size: iterations,
+            targetItems: iterations,
+            throughputUnit: "lookups",
+            run: () => {
+                let total = 0
+                for (let index = 0; index < iterations; index += 1) {
+                    total += map.get("security")!.title.length
+                }
+                return total
+            },
+        },
+        {
             id: "lookup.collection.get",
             category: "lookup",
             name: "Collection.get(key) lookup",
             size: iterations,
             targetItems: iterations,
             throughputUnit: "lookups",
-            baselineId: "lookup.object.property",
+            baselineId: "lookup.map.get",
             run: () => {
                 let total = 0
                 for (let index = 0; index < iterations; index += 1) {

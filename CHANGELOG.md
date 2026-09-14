@@ -4,6 +4,7 @@ All notable changes to `@obvia/collections` are documented in this file.
 
 ## Unreleased
 
+- Reduced projection and path-selector overhead by preallocating `select()` entry storage, specializing one/two-field projection loops, and avoiding unused key iteration in path-based `keyBy()` / `countBy()` operations. Benchmark baselines now compare key-preserving transforms and lookups against equivalent native `Map` workloads, with 1M grouping coverage added to CI profiling.
 - Replaced the custom `Bun.build()` script with `tsdown` 0.23 for a library-focused build pipeline that emits ESM, CommonJS, declaration files, declaration/source maps, and an unbundled module structure while preserving public JSDoc/docblocks.
 - Moved compile-time-only contracts to `tests/types/*.types.ts` so Bun never executes intentional `@ts-expect-error` expressions such as rejected `collect()` inputs during runtime test discovery.
 - Consolidated source, build configuration, benchmarks, and compile-time contracts under one `tsconfig.json`; runtime `*.test.ts` files are intentionally owned by `bun test` instead of TypeScript matcher checking, while `tests/types/*.types.ts` remains part of no-emit type verification. Removed `tsconfig.types.json` / `test:types` and added `@types/bun` for Bun-native project typing.

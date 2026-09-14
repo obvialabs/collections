@@ -714,12 +714,14 @@ export class Collection<
     ): Collection<TMappedKey, TValue> {
         const result = new Map<TMappedKey, TValue>()
 
-        for (const [key, value] of this.#store) {
-            const mappedKey = typeof selector === "function"
-                ? selector(value, key)
-                : getPathValue(value, selector) as TMappedKey
-
-            result.set(mappedKey, value)
+        if (typeof selector === "function") {
+            for (const [key, value] of this.#store) {
+                result.set(selector(value, key), value)
+            }
+        } else {
+            for (const value of this.#store.values()) {
+                result.set(getPathValue(value, selector) as TMappedKey, value)
+            }
         }
 
         return collectionFromOwnedMap(result)
@@ -1378,12 +1380,16 @@ export class Collection<
     ): Collection<TGroupKey, number> {
         const counts = new Map<TGroupKey, number>()
 
-        for (const [key, value] of this.#store) {
-            const groupKey = typeof selector === "function"
-                ? selector(value, key)
-                : getPathValue(value, selector) as TGroupKey
-
-            counts.set(groupKey, (counts.get(groupKey) ?? 0) + 1)
+        if (typeof selector === "function") {
+            for (const [key, value] of this.#store) {
+                const groupKey = selector(value, key)
+                counts.set(groupKey, (counts.get(groupKey) ?? 0) + 1)
+            }
+        } else {
+            for (const value of this.#store.values()) {
+                const groupKey = getPathValue(value, selector) as TGroupKey
+                counts.set(groupKey, (counts.get(groupKey) ?? 0) + 1)
+            }
         }
 
         return collectionFromOwnedMap(counts)
@@ -2139,37 +2145,69 @@ export class Collection<
         keys: keyof TValue | readonly (keyof TValue)[],
     ): Collection<TKey, any> {
         const selected = (Array.isArray(keys) ? keys : [keys]) as readonly PropertyKey[]
-        const entries: Array<readonly [TKey, Partial<TValue>]> = []
+        const entries = new Array<readonly [TKey, Partial<TValue>]>(this.#store.size)
         const firstKey = selected[0]
         const secondKey = selected[1]
+        let index = 0
+
+        if (selected.length === 1 && firstKey !== undefined) {
+            for (const [collectionKey, value] of this.#store) {
+                const projected: Partial<TValue> = {}
+
+                if ((typeof value === "object" || typeof value === "function") && value !== null) {
+                    const source = value as Record<PropertyKey, unknown>
+                    const target = projected as Record<PropertyKey, unknown>
+                    if (Object.prototype.hasOwnProperty.call(source, firstKey)) {
+                        target[firstKey] = source[firstKey]
+                    }
+                }
+
+                entries[index] = [collectionKey, projected]
+                index += 1
+            }
+
+            return new Collection(entries)
+        }
+
+        if (selected.length === 2 && firstKey !== undefined && secondKey !== undefined) {
+            for (const [collectionKey, value] of this.#store) {
+                const projected: Partial<TValue> = {}
+
+                if ((typeof value === "object" || typeof value === "function") && value !== null) {
+                    const source = value as Record<PropertyKey, unknown>
+                    const target = projected as Record<PropertyKey, unknown>
+
+                    if (Object.prototype.hasOwnProperty.call(source, firstKey)) {
+                        target[firstKey] = source[firstKey]
+                    }
+                    if (Object.prototype.hasOwnProperty.call(source, secondKey)) {
+                        target[secondKey] = source[secondKey]
+                    }
+                }
+
+                entries[index] = [collectionKey, projected]
+                index += 1
+            }
+
+            return new Collection(entries)
+        }
 
         for (const [collectionKey, value] of this.#store) {
-            const result: Partial<TValue> = {}
+            const projected: Partial<TValue> = {}
 
             if ((typeof value === "object" || typeof value === "function") && value !== null) {
                 const source = value as Record<PropertyKey, unknown>
-                const target = result as Record<PropertyKey, unknown>
+                const target = projected as Record<PropertyKey, unknown>
 
-                // One- and two-field projections are common hot paths. Avoid a
-                // nested iterator for them while preserving the exact same
-                // own-property semantics as the general projection path.
-                if (firstKey !== undefined && Object.prototype.hasOwnProperty.call(source, firstKey)) {
-                    target[firstKey] = source[firstKey]
-                }
-
-                if (secondKey !== undefined && Object.prototype.hasOwnProperty.call(source, secondKey)) {
-                    target[secondKey] = source[secondKey]
-                }
-
-                for (let index = 2; index < selected.length; index += 1) {
-                    const key = selected[index]!
+                for (const key of selected) {
                     if (Object.prototype.hasOwnProperty.call(source, key)) {
                         target[key] = source[key]
                     }
                 }
             }
 
-            entries.push([collectionKey, result])
+            entries[index] = [collectionKey, projected]
+            index += 1
         }
 
         return new Collection(entries)

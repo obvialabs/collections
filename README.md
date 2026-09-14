@@ -78,14 +78,14 @@ A reference GitHub Actions CI run on the 1,000,000-item profile measured:
 
 | Workload | Median | Throughput |
 | --- | ---: | ---: |
-| `Collection.contains(last)` | **1.931 ms** | **517.81M items/sec** |
-| `Collection.sum()` | **2.209 ms** | **452.72M items/sec** |
-| `Collection.toArray()` | **6.594 ms** | **151.65M items/sec** |
-| `Collection.percentage(enabled)` | **10.13 ms** | **98.71M items/sec** |
-| `Collection.countBy(group)` | **28.21 ms** | **35.44M items/sec** |
-| `filter → take → pluck → sum` | **77.52 ms** | **12.90M input items/sec** |
+| `Collection.contains(last)` | **2.841 ms** | **351.94M items/sec** |
+| `Collection.sum()` | **2.843 ms** | **351.79M items/sec** |
+| `Collection.toArray()` | **8.717 ms** | **114.72M items/sec** |
+| `Collection.percentage(enabled)` | **11.44 ms** | **87.42M items/sec** |
+| `Collection.countBy(group)` | **36.16 ms** | **27.66M items/sec** |
+| `filter → take → pluck → sum` | **63.81 ms** | **15.67M input items/sec** |
 
-That last row is a full fluent pipeline over a one-million-record source, not a single primitive operation. The complete benchmark report also includes native baselines, allocation-heavy transforms, ordering/grouping workloads, median/p95 variance, and machine metadata.
+That last row is a full fluent pipeline over a one-million-record source, not a single primitive operation. The complete benchmark report also includes native baselines, allocation-heavy transforms, ordering/grouping workloads, median/p95 variance, and machine metadata. Key-preserving transforms are compared against equivalent native `Map` workloads rather than allocation-cheaper `Array` transforms, while the raw array baselines remain visible as additional context.
 
 > Performance varies by runtime, runner, dataset shape, and operation. These are measured reference results, not duration guarantees. Run `bun run benchmark:ci` to reproduce the full profile on your own machine or CI runner.
 
