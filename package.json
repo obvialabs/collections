@@ -31,13 +31,14 @@
   },
   "files": [
     "dist",
+    "src",
     "docs",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {
-    "clean": "rm -rf dist",
+    "clean": "bun -e \"import { rmSync } from 'node:fs'; rmSync('dist', { recursive: true, force: true })\"",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:unit": "bun run build && bun test tests/unit",
@@ -53,7 +54,9 @@
     "test": "bun run test:runtime && bun run test:types",
     "benchmark": "bun run build && bun run benchmarks/collection.bench.ts",
     "check": "bun run typecheck && bun run test",
-    "prepublishOnly": "bun run check"
+    "prepublishOnly": "bun run check",
+    "verify:package": "bun run clean && bun run build && npm pack --dry-run --ignore-scripts",
+    "prepack": "bun run clean && bun run build"
   },
   "keywords": [
     "collection",
@@ -67,10 +70,10 @@
   ],
   "license": "MIT",
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "devDependencies": {
     "typescript": "^5.8.3"
-  }
+  },
+  "author": "Selçuk Çukur <selcukcukur@outlook.com.tr>"
 }

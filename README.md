@@ -575,6 +575,7 @@ bun run test:types
 ## Documentation
 
 - **[API reference](docs/api.md)** — complete method signatures, behavior, examples, edge cases, and errors.
+- **[Release guide](docs/releasing.md)** — manual verification and publishing checklist.
 - **[CHANGELOG](CHANGELOG.md)** — release history and noteworthy changes.
 
 ## License

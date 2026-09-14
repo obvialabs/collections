@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test"
 
 type PackageJson = {
+    author?: string
     files?: string[]
+    publishConfig?: Record<string, unknown>
     scripts?: Record<string, string>
 }
 
@@ -13,7 +15,7 @@ async function readText(path: string): Promise<string> {
     return Bun.file(new URL(path, import.meta.url)).text()
 }
 
-describe("test and release tooling contract", () => {
+describe("tooling contract", () => {
     test("runtime test scripts use Bun and never fall back to Node's test runner", async () => {
         const packageJson = await readJson<PackageJson>("../../package.json")
         const scripts = packageJson.scripts ?? {}
@@ -78,5 +80,34 @@ describe("test and release tooling contract", () => {
         expect(benchmarkWorkflow).toContain("schedule:")
         expect(benchmarkWorkflow).toContain("benchmark-results.txt")
         expect(benchmarkWorkflow).not.toContain("test:coverage")
+    })
+
+    test("prepares manual publish artifacts from a clean build and ships source-map sources", async () => {
+        const packageJson = await readJson<PackageJson>("../../package.json")
+        const scripts = packageJson.scripts ?? {}
+
+        expect(packageJson.files).toContain("dist")
+        expect(packageJson.files).toContain("src")
+        expect(packageJson.files).toContain("docs")
+        expect(packageJson.author).toBe("Selçuk Çukur <selcukcukur@outlook.com.tr>")
+        expect(packageJson.publishConfig?.access).toBe("public")
+        expect(packageJson.publishConfig?.provenance).toBeUndefined()
+        expect(scripts.prepack).toContain("bun run clean")
+        expect(scripts.prepack).toContain("bun run build")
+        expect(scripts["verify:package"]).toContain("npm pack --dry-run")
+        expect(scripts.prepublishOnly).toBe("bun run check")
+        expect(await Bun.file(new URL("../../.npmignore", import.meta.url)).exists()).toBe(false)
+    })
+
+    test("keeps publishing manual instead of adding a package or release workflow", async () => {
+        const candidates = [
+            "../../.github/workflows/package.yml",
+            "../../.github/workflows/publish.yml",
+            "../../.github/workflows/release.yml",
+        ]
+
+        for (const path of candidates) {
+            expect(await Bun.file(new URL(path, import.meta.url)).exists()).toBe(false)
+        }
     })
 })
