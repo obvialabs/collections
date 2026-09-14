@@ -1,7 +1,8 @@
 [test]
 # Coverage is requested explicitly through `bun run test:coverage`; ordinary
-# focused test commands stay fast.
-coverage = false
+# test commands stay fast without a global coverage toggle. Do not set
+# `coverage = false` here: Bun treats an explicit false value as authoritative
+# and it suppresses the CLI `--coverage` flag as well.
 
 # Test files are verification code, not part of the package surface whose
 # coverage we want to measure.

@@ -4,7 +4,7 @@ All notable changes to `@obvia/collections` are documented in this file.
 
 ## Unreleased
 
-- Fixed LCOV artifact generation by making Bun coverage reporters/output directory explicit and verifying `coverage/lcov.info` before upload.
+- Fixed LCOV artifact generation by removing the `[test] coverage = false` override that suppressed CLI `--coverage`; reporter, threshold and output settings now live in one `bunfig.toml` configuration and CI verifies the generated report before upload.
 - Modernized GitHub Actions to consistent `tests / collections`, `coverage / collections`, and `benchmark / collections` checks using current checkout/artifact actions and the package-pinned Bun runtime.
 - Rebuilt benchmarks around measured 10K/100K/1M workloads with Bun high-resolution timing, warmups, median/p95 statistics, native baselines, runner metadata, and machine-readable reports.
 - Unified collection creation around `collect()` and removed `createCollection()`, definition `id` injection, and direct Collection-key properties. Object records now use the same immutable Collection model as arrays, maps, and entry iterables.

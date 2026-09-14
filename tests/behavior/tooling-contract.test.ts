@@ -39,9 +39,8 @@ describe("tooling contract", () => {
         expect(scripts["test:runtime"]).toContain("tests/properties")
         expect(scripts["test:runtime"]).toContain("tests/performance")
         expect(scripts["test:coverage"]).toContain("--coverage")
-        expect(scripts["test:coverage"]).toContain("--coverage-reporter=text")
-        expect(scripts["test:coverage"]).toContain("--coverage-reporter=lcov")
-        expect(scripts["test:coverage"]).toContain("--coverage-dir=coverage")
+        expect(scripts["test:coverage"]).not.toContain("--coverage-reporter")
+        expect(scripts["test:coverage"]).not.toContain("--coverage-dir")
         expect(scripts["test:types"]).toContain("tsconfig.types.json")
         expect(scripts.benchmark).toContain("benchmarks/collection.bench.ts")
         expect(scripts.test).not.toContain("benchmark")
@@ -50,6 +49,7 @@ describe("tooling contract", () => {
     test("coverage configuration emits text and LCOV while enforcing source coverage", async () => {
         const bunfig = await readText("../../bunfig.toml")
 
+        expect(bunfig).not.toContain("coverage = false")
         expect(bunfig).toContain("coverageSkipTestFiles = true")
         expect(bunfig).toContain("coverageThreshold = 1.0")
         expect(bunfig).toContain('coverageReporter = ["text", "lcov"]')

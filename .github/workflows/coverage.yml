@@ -52,18 +52,25 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      # Run the complete runtime suite with explicit text + LCOV reporters.
-      # The package script also pins the output directory to ./coverage so the
-      # artifact path below never depends on Bun's implicit reporter defaults.
+      # Run the complete runtime suite with coverage enabled explicitly.
+      # Reporter selection, thresholds, and the persistent output directory are
+      # owned by bunfig.toml so local and CI coverage runs use one configuration.
       - name: Run coverage suite
         run: bun run test:coverage
 
       # Fail with a focused diagnostic if Bun did not emit the persistent LCOV
-      # report. This keeps artifact errors from obscuring the real problem.
+      # report. Listing coverage-related files makes configuration regressions
+      # visible immediately instead of surfacing as an artifact-upload error.
       - name: Verify LCOV report
         shell: bash
         run: |
-          test -s coverage/lcov.info
+          if [[ ! -s coverage/lcov.info ]]; then
+            echo "::error::Bun did not emit coverage/lcov.info"
+            echo "Coverage-related files found in the workspace:"
+            find . -maxdepth 4 -type f \( -name 'lcov.info' -o -path './coverage/*' \) -print || true
+            exit 1
+          fi
+
           echo "LCOV size: $(wc -c < coverage/lcov.info) bytes"
           echo "Covered source files: $(grep -c '^SF:' coverage/lcov.info)"
 
