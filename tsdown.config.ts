@@ -1,37 +1,42 @@
 import { defineConfig } from "tsdown"
 
 /**
- * Builds the publishable package without changing the source module structure.
+ * Builds the publishable package while preserving the source module structure.
  *
- * The package intentionally uses an unbundled library build. Each source module
- * remains independently inspectable in `dist`, public JSDoc is preserved, and
- * consumers receive both ESM and CommonJS runtimes plus declaration files.
+ * The build emits ESM and CommonJS runtimes, source maps and TypeScript
+ * declarations without collapsing the package into a single bundled module.
  */
 export default defineConfig({
-    entry: [
+    // Public package entry points.
+    entry     : [
         "src/index.ts",
         "src/collection.ts",
         "src/collect.ts",
     ],
-    root: "src",
-    outDir: "dist",
-    format: ["esm", "cjs"],
-    platform: "neutral",
-    target: false,
-    fixedExtension: false,
-    clean: true,
-    unbundle: true,
-    treeshake: false,
-    minify: false,
-    hash: false,
-    sourcemap: true,
-    dts: {
+
+    // Resolve source modules relative to the package source directory.
+    root      : "src",
+
+    // Write every generated artifact to the publishable distribution directory.
+    outDir    : "dist",
+
+    // Emit both modern ESM and CommonJS runtimes for package consumers.
+    format    : ["esm", "cjs"],
+
+    // Keep the output runtime-neutral so consumers can use any compatible runtime.
+    platform  : "neutral",
+
+    // Remove previous build artifacts before generating a fresh distribution.
+    clean     : true,
+
+    // Preserve the source module layout instead of collapsing it into one bundle.
+    unbundle  : true,
+
+    // Generate source maps for emitted JavaScript files.
+    sourcemap : true,
+
+    // Generate TypeScript declarations and declaration source maps.
+    dts       : {
         sourcemap: true,
-    },
-    failOnWarn: true,
-    outputOptions: {
-        // Keep public API JSDoc/docblocks in generated JavaScript as well as in
-        // declarations. Regular implementation comments may still be omitted.
-        comments: true,
     },
 })
