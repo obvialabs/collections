@@ -4,6 +4,9 @@ All notable changes to `@obvia/collections` are documented in this file.
 
 ## Unreleased
 
+- Switched runtime builds from TypeScript emit to Bun's native bundler, with explicit source-rooted ESM entrypoints and source maps; published `types` conditions now resolve directly to the TypeScript source instead of generated declarations.
+- Decoupled runtime tests and benchmarks from build artifacts by routing them through the package-internal `#collections` source alias, so `bun:test`, coverage, and benchmarks run directly against `src` without a prerequisite build.
+- Upgraded static verification to TypeScript 7.0.2, which is retained only as a no-emit type checker for source and compile-time contracts rather than as the package build pipeline.
 - Optimized allocation-heavy transforms by building owned result maps in one pass for `map()`, `filter()`, key-mapping operations, `groupBy()`, and `countBy()` while preserving defensive copies for every externally supplied `Map`.
 - Optimized positive `take()` to stop after the requested prefix instead of materializing the entire source, which directly reduces work in fluent pipelines such as `filter().take().pluck().sum()`.
 - Optimized numeric `sum()` / `average()` hot paths to iterate storage directly without an intermediate `reduce()` callback layer, and specialized common one/two-field `select()` projections.

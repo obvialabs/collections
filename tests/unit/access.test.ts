@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { Collection, collect } from "../../dist/index.js"
+import { Collection, collect } from "#collections"
 
 describe("access and selection", () => {
     test("exports defensive value, key, entry, array and map snapshots", () => {

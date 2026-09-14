@@ -17,7 +17,7 @@ import { collect } from "@obvia/collections"
 - **Keys stay meaningful** — object literal keys, `Map` keys, and keyed iterables remain first-class.
 - **Deep TypeScript support** — literal object shapes, nested paths, narrowing, and key-specific object output stay typed.
 - **Measured performance** — dedicated CI benchmarks exercise 10K, 100K, and 1M-item datasets against native JavaScript baselines.
-- **Zero runtime dependencies** — ESM package with declarations, source maps, and Bun-first verification.
+- **Zero runtime dependencies** — Bun-built ESM, published TypeScript source for consumer types, source maps, and Bun-first runtime verification.
 
 ## Installation
 
@@ -25,7 +25,7 @@ import { collect } from "@obvia/collections"
 bun add @obvia/collections
 ```
 
-The package is ESM-only, has no runtime dependencies, and ships TypeScript declarations and source maps.
+The package is ESM-only, has no runtime dependencies, uses its published TypeScript source as the type surface, and ships Bun-built ESM with source maps.
 
 ## Quick start
 
@@ -78,12 +78,12 @@ A reference GitHub Actions CI run on the 1,000,000-item profile measured:
 
 | Workload | Median | Throughput |
 | --- | ---: | ---: |
-| `Collection.contains(last)` | **1.214 ms** | **823.83M items/sec** |
-| `Collection.toArray()` | **4.884 ms** | **204.73M items/sec** |
-| `Collection.sum()` | **7.656 ms** | **130.62M items/sec** |
-| `Collection.percentage(enabled)` | **10.20 ms** | **98.05M items/sec** |
-| `Collection.countBy(group)` | **21.57 ms** | **46.36M items/sec** |
-| `filter → take → pluck → sum` | **83.77 ms** | **11.94M input items/sec** |
+| `Collection.contains(last)` | **1.931 ms** | **517.81M items/sec** |
+| `Collection.sum()` | **2.209 ms** | **452.72M items/sec** |
+| `Collection.toArray()` | **6.594 ms** | **151.65M items/sec** |
+| `Collection.percentage(enabled)` | **10.13 ms** | **98.71M items/sec** |
+| `Collection.countBy(group)` | **28.21 ms** | **35.44M items/sec** |
+| `filter → take → pluck → sum` | **77.52 ms** | **12.90M input items/sec** |
 
 That last row is a full fluent pipeline over a one-million-record source, not a single primitive operation. The complete benchmark report also includes native baselines, allocation-heavy transforms, ordering/grouping workloads, median/p95 variance, and machine metadata.
 
@@ -531,7 +531,7 @@ import { collect } from "@obvia/collections/collect"
 
 ## Testing and quality
 
-Runtime tests use `bun:test`. Verification is split by responsibility:
+Runtime tests use `bun:test` directly against `src` through the package-internal `#collections` alias. Tests and benchmarks never import generated `dist` files or require a build first. Verification is split by responsibility:
 
 ```bash
 bun run test
@@ -539,7 +539,7 @@ bun run test:coverage
 bun run benchmark
 ```
 
-The suite covers unit behavior, public contracts, negative behavior, collection invariants, native-equivalence properties, type-level contracts, and deterministic operation-count expectations. The current Bun coverage run reports **100% functions and 100% lines** across the built package. Wall-clock benchmarks remain observational and never decide correctness.
+The suite covers unit behavior, public contracts, negative behavior, collection invariants, native-equivalence properties, type-level contracts, and deterministic operation-count expectations. The current Bun coverage run reports **100% functions and 100% lines** across the source package. Wall-clock benchmarks remain observational and never decide correctness.
 
 The benchmark runner uses `Bun.nanoseconds()`, warmups, repeated measured samples, median/p95 reporting, native JavaScript baselines, explicit garbage collection between samples, output consumption for transforms, and separate throughput units for sequential work and lookup work. The CI profile measures 10K, 100K, and **1M-item** datasets and writes both JSON and Markdown reports, so quoted CI performance is traceable to an actual measured run rather than an estimate.
 
@@ -549,12 +549,21 @@ GitHub checks are intentionally independent and appear as **`tests / collections
 
 ```bash
 bun install
-bun run typecheck
 bun run test
 bun run build
 ```
 
-Focused suites are available through `test:unit`, `test:behavior`, `test:guards`, `test:contracts`, `test:properties`, `test:performance`, and `test:types`.
+`bun run typecheck` is available as a focused source-only static check. Focused suites are available through `test:unit`, `test:behavior`, `test:guards`, `test:contracts`, `test:properties`, `test:performance`, and `test:types`.
+
+### Build architecture
+
+Runtime JavaScript is produced only by Bun's native bundler. The build does not use TypeScript to emit JavaScript or declaration files:
+
+```bash
+bun run build
+```
+
+The published `types` conditions point directly at the package's TypeScript source, while runtime `import` conditions point at Bun-built ESM in `dist`. TypeScript is retained only as a no-emit static checker for source and compile-time type contracts.
 
 ## Documentation
 

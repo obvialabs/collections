@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect } from "../../dist/index.js"
+import { collect } from "#collections"
 
 const users = collect({
     ada: {

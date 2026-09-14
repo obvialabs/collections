@@ -14,7 +14,7 @@ bun run benchmark
 bun run verify:package
 ```
 
-`verify:package` performs a clean build and runs an npm pack dry-run so the files that would be published can be inspected without publishing anything.
+`verify:package` performs a Bun build and runs an npm pack dry-run so the files that would be published can be inspected without publishing anything.
 
 ## Inspect the package
 
@@ -30,7 +30,7 @@ Inspect its contents before publishing:
 tar -tzf obvia-collections-*.tgz
 ```
 
-The package should contain the compiled `dist` output, source files required by source/declaration maps, documentation, changelog, license, README, and package metadata. Test files, benchmark sources, Git metadata, and CI configuration should not be present.
+The package should contain Bun-built `dist` output, the published TypeScript source used by the `types` export conditions, documentation, changelog, license, README, and package metadata. Test files, benchmark sources, Git metadata, and CI configuration should not be present.
 
 ## Publish
 

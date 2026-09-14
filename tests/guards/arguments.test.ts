@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect } from "../../dist/index.js"
+import { collect } from "#collections"
 
 const values = collect([1, 2, 3, 4, 5])
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect } from "../../dist/index.js"
+import { collect } from "#collections"
 
 describe("high-value edge-case contracts", () => {
     test("combine consumes iterable values once and rejects too-short or too-long generators", () => {

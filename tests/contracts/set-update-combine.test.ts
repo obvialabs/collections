@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect } from "../../dist/index.js"
+import { collect } from "#collections"
 
 describe("set, update and combination contracts", () => {
     test("unique keeps the first entry for each SameValueZero selector result", () => {

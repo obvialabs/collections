@@ -1,4 +1,4 @@
-import { collect } from "../dist/index.js"
+import { collect } from "#collections"
 
 type BenchmarkProfileName = "quick" | "ci" | "thorough"
 

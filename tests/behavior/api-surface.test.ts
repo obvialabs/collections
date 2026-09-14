@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { Collection } from "../../dist/index.js"
+import { Collection } from "#collections"
 
 const expectedMethods = [
     "after", "all", "append", "average", "avg", "before", "chunk", "chunkWhile", "collapse",

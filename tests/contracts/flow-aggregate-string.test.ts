@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect } from "../../dist/index.js"
+import { collect } from "#collections"
 
 describe("flow, aggregate, string and iteration contracts", () => {
     test("reduce visits values in iteration order, exposes keys and returns initial on empty", () => {

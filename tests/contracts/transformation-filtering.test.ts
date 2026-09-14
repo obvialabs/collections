@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { Collection, collect } from "../../dist/index.js"
+import { Collection, collect } from "#collections"
 
 describe("transformation and filtering contracts", () => {
     test("map preserves keys and provides value, key and the source collection", () => {

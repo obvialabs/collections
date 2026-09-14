@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect } from "../../dist/index.js"
+import { collect } from "#collections"
 
 describe("flow, aggregation and strings", () => {
     test("reduce, each, tap and pipe preserve their flow contracts", () => {

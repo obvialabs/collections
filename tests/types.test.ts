@@ -1,7 +1,7 @@
 import {
     Collection,
     collect,
-} from "../src/index"
+} from "#collections"
 
 type Equal<TLeft, TRight> =
     (<T>() => T extends TLeft ? 1 : 2) extends

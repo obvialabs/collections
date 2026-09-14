@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect } from "../../dist/index.js"
+import { collect } from "#collections"
 
 describe("subsets, windows and ordering", () => {
     test("take, skip and slice support both ends without losing keys", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect } from "../../dist/index.js"
+import { collect } from "#collections"
 
 const records = collect({
     alpha: { meta: { score: 10, tag: "a" }, active: true, note: null },

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect } from "../../dist/index.js"
+import { collect } from "#collections"
 
 describe("subset and window contracts", () => {
     test("only preserves source order rather than requested-key order", () => {

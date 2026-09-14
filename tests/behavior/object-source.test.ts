@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect } from "../../dist/index.js"
+import { collect } from "#collections"
 
 describe("object-source collection behavior", () => {
     test("object sources use the same Collection API as every other source", () => {

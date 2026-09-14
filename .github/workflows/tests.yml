@@ -48,14 +48,10 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
-      # Install development dependencies required by TypeScript and the tests.
+      # Install dependencies required by Bun tests and the native TypeScript checker.
       - name: Install dependencies
         run: bun install
 
-      # Validate the source independently from runtime behavior.
-      - name: Typecheck source
-        run: bun run typecheck
-
-      # Run Bun runtime tests and compile-time type-contract tests.
+      # Run source-first Bun runtime tests and compile-time type contracts.
       - name: Run test suite
         run: bun run test

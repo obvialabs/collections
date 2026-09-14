@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect } from "../../dist/index.js"
+import { collect } from "#collections"
 
 describe("ordering and grouping contracts", () => {
     test("reverse changes iteration order while preserving key/value associations", () => {

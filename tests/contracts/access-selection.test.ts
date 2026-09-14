@@ -5,7 +5,7 @@ import {
     CollectionItemNotFoundError,
     CollectionMultipleItemsError,
     collect,
-} from "../../dist/index.js"
+} from "#collections"
 
 describe("key access and selection contracts", () => {
     test("get and has distinguish a missing key from a present undefined value", () => {

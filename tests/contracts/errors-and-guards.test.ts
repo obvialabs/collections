@@ -5,7 +5,7 @@ import {
     CollectionItemNotFoundError,
     CollectionMultipleItemsError,
     collect,
-} from "../../dist/index.js"
+} from "#collections"
 
 describe("errors and invalid-input contracts", () => {
     test("package selection errors have stable class names and default messages", () => {

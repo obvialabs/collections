@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect } from "../../dist/index.js"
+import { collect } from "#collections"
 
 describe("high-value navigation and windowing contracts", () => {
     test("before and after return adjacent values around the first strict match", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { Collection, collect } from "../../dist/index.js"
+import { Collection, collect } from "#collections"
 
 describe("edge semantics and non-obvious contracts", () => {
     test("entry snapshots can be mutated without changing the collection", () => {

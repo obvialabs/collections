@@ -5,7 +5,7 @@ import {
     CollectionItemNotFoundError,
     CollectionMultipleItemsError,
     collect,
-} from "../../dist/index.js"
+} from "#collections"
 
 describe("failure semantics", () => {
     test("required selection methods use package-specific errors", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect } from "../../dist/index.js"
+import { collect } from "#collections"
 
 function range(size: number): number[] {
     return Array.from({ length: size }, (_, index) => index)

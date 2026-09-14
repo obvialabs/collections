@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { Collection, collect } from "../../dist/index.js"
+import { Collection, collect } from "#collections"
 
 describe("collection creation contracts", () => {
     test("collect() creates an empty numerically keyed collection", () => {

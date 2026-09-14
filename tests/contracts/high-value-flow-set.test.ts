@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { Collection, collect } from "../../dist/index.js"
+import { Collection, collect } from "#collections"
 
 describe("high-value set, ordering, flow and filtering contracts", () => {
     test("diffAssoc and intersectAssoc compare both key and value using Object.is", () => {

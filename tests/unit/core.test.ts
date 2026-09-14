@@ -5,7 +5,7 @@ import {
     CollectionItemNotFoundError,
     CollectionMultipleItemsError,
     collect,
-} from "../../dist/index.js"
+} from "#collections"
 
 describe("core collection behavior", () => {
     test("collect creates immutable keyed collections", () => {
