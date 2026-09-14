@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 type PackageJson = {
     author?: string
+    packageManager?: string
     files?: string[]
     publishConfig?: Record<string, unknown>
     scripts?: Record<string, string>
@@ -60,7 +61,7 @@ describe("tooling contract", () => {
 
     test("keeps tests, coverage and benchmarks in independent GitHub workflows", async () => {
         const [testWorkflow, coverageWorkflow, benchmarkWorkflow] = await Promise.all([
-            readText("../../.github/workflows/test.yml"),
+            readText("../../.github/workflows/tests.yml"),
             readText("../../.github/workflows/coverage.yml"),
             readText("../../.github/workflows/benchmark.yml"),
         ])
@@ -71,15 +72,51 @@ describe("tooling contract", () => {
         expect(testWorkflow).not.toContain("benchmark")
 
         expect(coverageWorkflow).toContain("bun run test:coverage")
-        expect(coverageWorkflow).toContain("actions/upload-artifact@v4")
+        expect(coverageWorkflow).toContain("actions/upload-artifact@v7")
         expect(coverageWorkflow).toContain("coverage/lcov.info")
         expect(coverageWorkflow).not.toContain("bun run benchmark")
 
-        expect(benchmarkWorkflow).toContain("bun run benchmark")
+        expect(benchmarkWorkflow).toContain("bun run benchmark:ci")
         expect(benchmarkWorkflow).toContain("workflow_dispatch")
         expect(benchmarkWorkflow).toContain("schedule:")
         expect(benchmarkWorkflow).toContain("benchmark-results.txt")
+        expect(benchmarkWorkflow).toContain("benchmark-results.json")
+        expect(benchmarkWorkflow).toContain("benchmark-results.md")
+        expect(benchmarkWorkflow).toContain("ubuntu-24.04")
         expect(benchmarkWorkflow).not.toContain("test:coverage")
+
+        expect(testWorkflow).toContain("name: tests")
+        expect(testWorkflow).toContain("name: collections")
+        expect(coverageWorkflow).toContain("name: coverage")
+        expect(coverageWorkflow).toContain("name: collections")
+        expect(benchmarkWorkflow).toContain("name: benchmark")
+        expect(benchmarkWorkflow).toContain("name: collections")
+
+        for (const workflow of [testWorkflow, coverageWorkflow, benchmarkWorkflow]) {
+            expect(workflow).toContain("actions/checkout@v7")
+            expect(workflow).toContain("oven-sh/setup-bun@v2")
+            expect(workflow).toContain("persist-credentials: false")
+        }
+    })
+
+    test("benchmarks real large datasets with native baselines and measured reports", async () => {
+        const [packageJson, benchmark] = await Promise.all([
+            readJson<PackageJson>("../../package.json"),
+            readText("../../benchmarks/collection.bench.ts"),
+        ])
+        const scripts = packageJson.scripts ?? {}
+
+        expect(scripts["benchmark:ci"]).toContain("--profile=ci")
+        expect(benchmark).toContain("1_000_000")
+        expect(benchmark).toContain("Bun.nanoseconds")
+        expect(benchmark).toContain("bun.gc(true)")
+        expect(benchmark).toContain("native")
+        expect(benchmark).toContain("benchmark-results.json")
+        expect(benchmark).toContain("benchmark-results.md")
+        expect(benchmark).toContain("medianMs")
+        expect(benchmark).toContain("p95Ms")
+        expect(benchmark).toContain("itemsPerSecond")
+        expect(benchmark).not.toContain("timing pass/fail threshold")
     })
 
     test("prepares manual publish artifacts from a clean build and ships source-map sources", async () => {
@@ -87,6 +124,7 @@ describe("tooling contract", () => {
         const scripts = packageJson.scripts ?? {}
 
         expect(packageJson.files).toContain("dist")
+        expect(packageJson.packageManager).toBe("bun@1.4.2")
         expect(packageJson.files).toContain("src")
         expect(packageJson.files).toContain("docs")
         expect(packageJson.author).toBe("Selçuk Çukur <selcukcukur@outlook.com.tr>")

@@ -51,7 +51,8 @@
     "check": "bun run typecheck && bun run test",
     "prepublishOnly": "bun run check",
     "verify:package": "bun run clean && bun run build && npm pack --dry-run --ignore-scripts",
-    "prepack": "bun run clean && bun run build"
+    "prepack": "bun run clean && bun run build",
+    "benchmark:ci": "bun run build && bun run benchmarks/collection.bench.ts --profile=ci"
   },
   "keywords": [
     "collection",
@@ -70,5 +71,6 @@
   "devDependencies": {
     "typescript": "^5.8.3"
   },
-  "author": "Selçuk Çukur <selcukcukur@outlook.com.tr>"
+  "author": "Selçuk Çukur <selcukcukur@outlook.com.tr>",
+  "packageManager": "bun@1.4.2"
 }

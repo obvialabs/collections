@@ -1,14 +1,14 @@
 # Workflow name
-name: coverage
+name: tests
 
 # Workflow conditions
 on:
-  # Measure coverage for every change pushed to the default branch.
+  # Run the full test suite for changes pushed to the default branch.
   push:
     branches:
       - master
 
-  # Keep pull requests subject to the same coverage contract.
+  # Validate every pull request before it is merged.
   pull_request:
 
   # Allow manual execution from the GitHub Actions interface.
@@ -27,13 +27,13 @@ concurrency:
 jobs:
   # Job (Collections)
   collections:
-    # Job name shown in GitHub checks: "coverage / collections".
+    # Job name shown in GitHub checks: "tests / collections".
     name: collections
 
-    # Use a pinned GitHub-hosted Linux image for reproducible coverage results.
+    # Use a pinned GitHub-hosted Linux image for reproducible CI behavior.
     runs-on: ubuntu-24.04
 
-    # Prevent a stalled coverage process from consuming CI indefinitely.
+    # Prevent a stalled runner from consuming CI indefinitely.
     timeout-minutes: 10
 
     # Job steps
@@ -48,20 +48,14 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
-      # Install development dependencies required by the coverage suite.
+      # Install development dependencies required by TypeScript and the tests.
       - name: Install dependencies
         run: bun install
 
-      # Run the complete runtime suite with Bun's source coverage enabled.
-      - name: Run coverage suite
-        run: bun run test:coverage
+      # Validate the source independently from runtime behavior.
+      - name: Typecheck source
+        run: bun run typecheck
 
-      # Preserve the machine-readable LCOV report for external inspection.
-      - name: Upload LCOV report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-lcov-${{ github.run_id }}
-          path: coverage/lcov.info
-          if-no-files-found: error
-          retention-days: 14
+      # Run Bun runtime tests and compile-time type-contract tests.
+      - name: Run test suite
+        run: bun run test

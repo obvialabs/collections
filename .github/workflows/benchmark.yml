@@ -1,11 +1,12 @@
-name: Benchmark
+# Workflow name
+name: benchmark
 
+# Workflow conditions
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: "17 3 * * 1"
+  # Run benchmarks when source or benchmark behavior changes on the default branch.
   push:
-    branches: [master]
+    branches:
+      - master
     paths:
       - "src/**"
       - "benchmarks/**"
@@ -13,48 +14,92 @@ on:
       - "bunfig.toml"
       - ".github/workflows/benchmark.yml"
 
+  # Keep a periodic historical data point even when the package is unchanged.
+  schedule:
+    - cron: "17 3 * * 1"
+
+  # Allow manual benchmark runs from the GitHub Actions interface.
+  workflow_dispatch:
+
+# Grant only the repository permission required by this workflow.
 permissions:
   contents: read
 
+# Never benchmark two revisions of the same ref at the same time.
 concurrency:
-  group: benchmark-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Workflow jobs
 jobs:
-  benchmark:
-    name: Collection benchmark
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+  # Job (Collections)
+  collections:
+    # Job name shown in GitHub checks: "benchmark / collections".
+    name: collections
 
+    # Pin the runner image because OS/runtime changes materially affect timings.
+    runs-on: ubuntu-24.04
+
+    # The CI profile includes real one-million-item workloads.
+    timeout-minutes: 30
+
+    # Job steps
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      # Checkout the exact commit being benchmarked.
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
+      # Install the Bun version declared by package.json.
       - name: Setup Bun
         id: bun
         uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
 
+      # Install development dependencies required by the benchmark build.
       - name: Install dependencies
         run: bun install
 
-      - name: Record runner metadata
+      # Record enough runner information to make timings reproducible and honest.
+      - name: Record benchmark environment
+        shell: bash
         run: |
           {
-            echo "@obvia/collections benchmark"
+            echo "@obvia/collections benchmark environment"
             echo "commit=${GITHUB_SHA}"
             echo "runner=${RUNNER_OS}/${RUNNER_ARCH}"
+            echo "image=ubuntu-24.04"
             echo "bun=${{ steps.bun.outputs.bun-version }}"
+            echo "revision=${{ steps.bun.outputs.bun-revision }}"
             echo
-          } > benchmark-results.txt
+            echo "kernel:"
+            uname -a
+            echo
+            echo "cpu:"
+            lscpu | grep -E '^(Architecture|CPU\(s\)|Model name|Thread\(s\) per core|Core\(s\) per socket|Socket\(s\)):' || true
+            echo
+            echo "memory:"
+            free -h
+          } | tee benchmark-environment.txt
 
-      - name: Run benchmark
-        run: bun run benchmark | tee -a benchmark-results.txt
+      # Run the CI benchmark profile with 10K, 100K and 1M real datasets.
+      - name: Run benchmark suite
+        run: bun run benchmark:ci | tee benchmark-results.txt
 
+      # Publish the measured summary directly on the workflow run page.
+      - name: Publish benchmark summary
+        shell: bash
+        run: cat benchmark-results.md >> "${GITHUB_STEP_SUMMARY}"
+
+      # Preserve raw, structured and human-readable results for later comparison.
       - name: Upload benchmark results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-${{ github.run_id }}
-          path: benchmark-results.txt
+          path: |
+            benchmark-environment.txt
+            benchmark-results.txt
+            benchmark-results.json
+            benchmark-results.md
+          if-no-files-found: error
           retention-days: 30
