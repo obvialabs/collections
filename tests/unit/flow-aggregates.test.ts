@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect, createCollection } from "../../dist/index.js"
+import { collect } from "../../dist/index.js"
 
 describe("flow, aggregation and strings", () => {
     test("reduce, each, tap and pipe preserve their flow contracts", () => {
@@ -70,7 +70,7 @@ describe("flow, aggregation and strings", () => {
     })
 
     test("join, implode and values produce expected native/numeric output", () => {
-        const users = createCollection({
+        const users = collect({
             a: { name: "Ada" },
             b: { name: "Grace" },
             c: { name: "Linus" },
@@ -81,6 +81,6 @@ describe("flow, aggregation and strings", () => {
         expect(collect(["a", "b", "c"]).join(", ", " and ")).toBe("a, b and c")
         expect(users.implode("name", " | ")).toBe("Ada | Grace | Linus")
         expect(users.values().keys()).toEqual([0, 1, 2])
-        expect(users.values().items().map((user) => user.id)).toEqual(["a", "b", "c"])
+        expect(users.values().items().map((user) => user.name)).toEqual(["Ada", "Grace", "Linus"])
     })
 })

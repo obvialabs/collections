@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect, createCollection } from "../../dist/index.js"
+import { collect } from "../../dist/index.js"
 
-const users = createCollection({
+const users = collect({
     ada: {
         profile: { email: "ada@example.com", score: 90 },
         role: "admin",
@@ -35,7 +35,7 @@ describe("collection transformations", () => {
 
     test("groupBy, keyBy and countBy preserve useful keys", () => {
         expect(users.groupBy("role").get("member")?.keys()).toEqual(["grace", "linus"])
-        expect(users.keyBy("profile.email").get("ada@example.com")?.id).toBe("ada")
+        expect(users.keyBy("profile.email").get("ada@example.com")?.profile.score).toBe(90)
         expect(users.countBy("role").get("member")).toBe(2)
     })
 

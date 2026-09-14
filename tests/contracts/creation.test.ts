@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { Collection, collect, createCollection } from "../../dist/index.js"
+import { Collection, collect } from "../../dist/index.js"
 
 describe("collection creation contracts", () => {
     test("collect() creates an empty numerically keyed collection", () => {
@@ -27,7 +27,48 @@ describe("collection creation contracts", () => {
         ])
     })
 
-    test("collect(object) normalizes numeric keys and excludes symbol-only properties", () => {
+    test("collect(object) preserves source values without injecting fields", () => {
+        const google = { label: "Google" }
+        const source = {
+            google,
+            github: { label: "GitHub" },
+        }
+        const collection = collect(source)
+
+        expect(collection.keys()).toEqual(["google", "github"])
+        expect(collection.get("google")).toBe(google)
+        expect(collection.get("google")).toEqual({ label: "Google" })
+        expect("id" in collection.get("google")!).toBe(false)
+        expect(Object.prototype.hasOwnProperty.call(collection, "google")).toBe(false)
+    })
+
+    test("collect(object) makes method-name keys safe through get() and toObject()", () => {
+        const collection = collect({
+            map: { label: "Map item" },
+            filter: { label: "Filter item" },
+            count: { label: "Count item" },
+            constructor: { label: "Constructor item" },
+            ["__proto__"]: { label: "Prototype item" },
+        })
+
+        expect(typeof collection.map).toBe("function")
+        expect(typeof collection.filter).toBe("function")
+        expect(typeof collection.count).toBe("function")
+        expect(typeof collection.constructor).toBe("function")
+        expect(collection.get("map")?.label).toBe("Map item")
+        expect(collection.get("filter")?.label).toBe("Filter item")
+        expect(collection.get("count")?.label).toBe("Count item")
+        expect(collection.get("constructor")?.label).toBe("Constructor item")
+        expect(collection.get("__proto__")?.label).toBe("Prototype item")
+
+        const object = collection.toObject()
+        expect(Object.getPrototypeOf(object)).toBeNull()
+        expect(object.map.label).toBe("Map item")
+        expect(object.constructor.label).toBe("Constructor item")
+        expect(object.__proto__.label).toBe("Prototype item")
+    })
+
+    test("collect(object) normalizes numeric keys and excludes symbol properties", () => {
         const symbol = Symbol("ignored")
         const source = {
             1: "one",
@@ -41,26 +82,13 @@ describe("collection creation contracts", () => {
             ["alpha", "alpha"],
         ])
         expect(collection.has("1")).toBe(true)
+        expect(collection.toObject()).toEqual({
+            1: "one",
+            alpha: "alpha",
+        })
     })
 
-    test("collect(Map) preserves key identity, insertion order and values", () => {
-        const objectKey = { id: 1 }
-        const symbolKey = Symbol("token")
-        const source = new Map<object | symbol | string, number>([
-            [objectKey, 1],
-            [symbolKey, 2],
-            ["plain", 3],
-        ])
-        const collection = collect(source)
-
-        source.clear()
-
-        expect(collection.keys()).toEqual([objectKey, symbolKey, "plain"])
-        expect(collection.items()).toEqual([1, 2, 3])
-        expect(collection.get(objectKey)).toBe(1)
-    })
-
-    test("collect(object) uses enumerable own string properties in Object.entries order", () => {
+    test("collect(object) follows Object.entries enumerable-own-property order", () => {
         const symbol = Symbol("hidden")
         const prototype = { inherited: "ignored" }
         const source = Object.assign(Object.create(prototype) as Record<PropertyKey, unknown>, {
@@ -81,6 +109,38 @@ describe("collection creation contracts", () => {
         ])
     })
 
+    test("collect(object) is shallow and preserves value references", () => {
+        const nested = { enabled: true }
+        const item = { title: "Original", nested }
+        const source = { canvas: item }
+        const collection = collect(source)
+
+        item.title = "Changed after creation"
+        nested.enabled = false
+
+        expect(collection.get("canvas")).toBe(item)
+        expect(collection.get("canvas")?.title).toBe("Changed after creation")
+        expect(collection.get("canvas")?.nested).toBe(nested)
+        expect(collection.get("canvas")?.nested.enabled).toBe(false)
+    })
+
+    test("collect(Map) preserves key identity, insertion order and values", () => {
+        const objectKey = { id: 1 }
+        const symbolKey = Symbol("token")
+        const source = new Map<object | symbol | string, number>([
+            [objectKey, 1],
+            [symbolKey, 2],
+            ["plain", 3],
+        ])
+        const collection = collect(source)
+
+        source.clear()
+
+        expect(collection.keys()).toEqual([objectKey, symbolKey, "plain"])
+        expect(collection.items()).toEqual([1, 2, 3])
+        expect(collection.get(objectKey)).toBe(1)
+    })
+
     test("collect(entry iterable) consumes entries once and preserves their keys", () => {
         let iterations = 0
         function* entries(): Generator<readonly [string, number]> {
@@ -99,10 +159,11 @@ describe("collection creation contracts", () => {
     })
 
     test("collect(existing Collection) returns exactly the same instance", () => {
-        const original = collect([1, 2, 3])
+        const original = collect({ alpha: { value: 1 } })
         const collected = collect(original)
 
         expect(collected).toBe(original)
+        expect(collected.toObject().alpha.value).toBe(1)
     })
 
     test("Collection constructor follows Map duplicate-key semantics", () => {
@@ -117,162 +178,25 @@ describe("collection creation contracts", () => {
             ["b", 2],
         ])
     })
-
-    test("collect(object) and createCollection(object) preserve intentionally different semantics", () => {
-        const definition = {
-            google: { label: "Google" },
-            github: { label: "GitHub" },
-        }
-        const runtime = collect(definition)
-        const defined = createCollection(definition)
-
-        expect(runtime.get("google")).toBe(definition.google)
-        expect(Object.prototype.hasOwnProperty.call(runtime, "google")).toBe(false)
-        expect("id" in runtime.get("google")!).toBe(false)
-
-        expect(defined.get("google")).toBe(defined.google)
-        expect(defined.google.id).toBe("google")
-        expect(Object.prototype.hasOwnProperty.call(defined, "google")).toBe(true)
-    })
-
-    test("createCollection injects canonical literal ids and replaces supplied ids", () => {
-        const collection = createCollection({
-            canvas: {
-                id: "incorrect",
-                title: "Canvas",
-            },
-            security: {
-                title: "Security",
-            },
-        })
-
-        expect(collection.canvas.id).toBe("canvas")
-        expect(collection.security.id).toBe("security")
-        expect(collection.get("canvas")).toBe(collection.canvas)
-    })
-
-    test("createCollection exposes safe keys as immutable direct properties", () => {
-        const collection = createCollection({
-            canvas: { title: "Canvas" },
-        })
-        const descriptor = Object.getOwnPropertyDescriptor(collection, "canvas")
-
-        expect(descriptor?.enumerable).toBe(true)
-        expect(descriptor?.writable).toBe(false)
-        expect(descriptor?.configurable).toBe(false)
-        expect(collection.canvas).toBe(collection.get("canvas"))
-    })
-
-    test("createCollection never shadows collection methods or Object members", () => {
-        const collection = createCollection({
-            map: { title: "Map item" },
-            filter: { title: "Filter item" },
-            count: { title: "Count item" },
-            constructor: { title: "Constructor item" },
-            toString: { title: "toString item" },
-            safe: { title: "Safe item" },
-        })
-
-        expect(typeof collection.map).toBe("function")
-        expect(typeof collection.filter).toBe("function")
-        expect(typeof collection.count).toBe("function")
-        expect(typeof collection.constructor).toBe("function")
-        expect(typeof collection.toString).toBe("function")
-        expect(collection.get("map")?.title).toBe("Map item")
-        expect(collection.get("filter")?.title).toBe("Filter item")
-        expect(collection.get("count")?.title).toBe("Count item")
-        expect(collection.get("constructor")?.title).toBe("Constructor item")
-        expect(collection.get("toString")?.title).toBe("toString item")
-        expect(collection.safe.title).toBe("Safe item")
-    })
-
-    test("createCollection snapshots item top-level fields but intentionally stays shallow", () => {
-        const nested = { enabled: true }
-        const item = { title: "Original", nested }
-        const definition = { canvas: item }
-        const collection = createCollection(definition)
-
-        item.title = "Changed after creation"
-        nested.enabled = false
-
-        expect(collection.canvas.title).toBe("Original")
-        expect(collection.canvas.nested.enabled).toBe(false)
-        expect(collection.canvas.nested).toBe(nested)
-    })
-
-    test("fluent transformations from a defined collection return regular collections", () => {
-        const defined = createCollection({
-            canvas: { enabled: true },
-            security: { enabled: false },
-        })
-        const filtered = defined.filter((item) => item.enabled)
-
-        expect(filtered).toBeInstanceOf(Collection)
-        expect(filtered.entries()).toEqual([["canvas", defined.canvas]])
-        expect(Object.prototype.hasOwnProperty.call(filtered, "canvas")).toBe(false)
-    })
 })
 
-
 describe("factory input hardening", () => {
-    test("createCollection normalizes numeric object keys to runtime string ids", () => {
-        const collection = createCollection({
-            1: { label: "One" },
-            42: { label: "Forty two" },
-        })
+    test("collect accepts null-prototype records", () => {
+        const source = Object.create(null) as Record<string, number>
+        source.alpha = 1
+        source.beta = 2
 
-        expect(collection.keys()).toEqual(["1", "42"])
-        expect(collection.get("1")?.id).toBe("1")
-        expect(collection["42"].label).toBe("Forty two")
+        expect(collect(source).entries()).toEqual([
+            ["alpha", 1],
+            ["beta", 2],
+        ])
     })
 
-    test("createCollection includes non-enumerable own definition keys so runtime matches keyof", () => {
-        const definition = {} as {
-            hidden: { label: string }
-        }
+    test("collect accepts custom-prototype records but ignores inherited values", () => {
+        const source = Object.create({ inherited: 1 }) as Record<string, number>
+        source.own = 2
 
-        Object.defineProperty(definition, "hidden", {
-            value: { label: "Hidden" },
-            enumerable: false,
-            configurable: true,
-        })
-
-        const collection = createCollection(definition)
-
-        expect(collection.keys()).toEqual(["hidden"])
-        expect(collection.hidden.id).toBe("hidden")
-        expect(collection.hidden.label).toBe("Hidden")
-    })
-
-    test("createCollection keeps legacy Object prototype names lookup-only", () => {
-        const collection = createCollection({
-            ["__proto__"]: { title: "Proto item" },
-            __defineGetter__: { title: "Getter item" },
-            safe: { title: "Safe item" },
-        })
-
-        expect(typeof (collection as unknown as Record<string, unknown>).__defineGetter__).toBe("function")
-        expect(collection.get("__proto__")?.title).toBe("Proto item")
-        expect(collection.get("__defineGetter__")?.title).toBe("Getter item")
-        expect(collection.safe.title).toBe("Safe item")
-    })
-
-    test("createCollection rejects symbol definition keys rather than silently dropping them", () => {
-        const symbol = Symbol("definition")
-        const definition = {
-            visible: { label: "Visible" },
-            [symbol]: { label: "Symbol" },
-        }
-
-        expect(() => createCollection(definition)).toThrow(TypeError)
-    })
-
-    test("createCollection rejects class instances as definition roots", () => {
-        class Definitions {
-            public alpha = { label: "Alpha" }
-        }
-
-        expect(() => createCollection(new Definitions())).toThrow(TypeError)
+        expect(collect(source).entries()).toEqual([["own", 2]])
     })
 
     test("collect rejects unsupported primitive and structured object inputs", () => {
@@ -291,16 +215,5 @@ describe("factory input hardening", () => {
         ] as const) {
             expect(() => collect(value as never)).toThrow(TypeError)
         }
-    })
-
-    test("collect accepts null-prototype plain records", () => {
-        const source = Object.create(null) as Record<string, number>
-        source.alpha = 1
-        source.beta = 2
-
-        expect(collect(source).entries()).toEqual([
-            ["alpha", 1],
-            ["beta", 2],
-        ])
     })
 })

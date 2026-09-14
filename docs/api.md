@@ -4,13 +4,11 @@ Complete API reference for `@obvia/collections`. This document is intentionally 
 
 The collection API is immutable: operations return new `Collection` instances unless a method explicitly returns a scalar, array, map, object, tuple, or another non-collection result.
 
-> `createCollection()` adds definition IDs and root-level direct access. Fluent transformations return the regular `Collection` abstraction. See the README for the factory comparison.
-
 ## Creating Collections
 
 ### `collect`
 
-Creates a collection from an array, readonly map, object record, iterable of entries, existing collection or no source at all.
+Creates a collection from an array, readonly map, object record, iterable of entries, existing collection, or no source at all. This is the package's single factory.
 
 ```ts
 import { collect } from "@obvia/collections"
@@ -21,70 +19,32 @@ const roles = collect(new Map([
     ["admin", 1],
     ["member", 2],
 ]))
-const object = collect({ active: true, queued: false })
+const settings = collect({ active: true, queued: false })
 const numericKeys = collect({ 1: "one" })
 
 numericKeys.keys() // ["1"]
 ```
 
-Arrays use numeric keys. Maps and entry iterables preserve their original keys. Object records follow `Object.entries()` semantics: enumerable own string properties are collected, inherited and non-enumerable properties are ignored, numeric object keys are normalized to strings, and symbol-only properties are excluded. Record-like objects created with `Object.create(customPrototype)` are supported; structured instances such as `Date`, `RegExp`, and class instances are rejected. Passing an existing `Collection` returns the same collection instance.
+Arrays use numeric keys. Maps and entry iterables preserve their original keys. Object records follow `Object.entries()` semantics: enumerable own string properties are collected, inherited and non-enumerable properties are ignored, numeric object keys are normalized to strings, and symbol properties are excluded. Record-like objects created with `Object.create(customPrototype)` are supported; structured instances such as `Date`, `RegExp`, and class instances are rejected. Passing an existing `Collection` returns the same instance.
 
-### `createCollection`
-
-Creates a strongly typed keyed collection from an object definition. The definition key becomes the canonical literal `id` for that item.
+Object values are preserved exactly. `collect()` never injects IDs and never exposes source keys as properties on the Collection instance. Use `get()` while working with the Collection and `toObject()` when object-style property access is wanted.
 
 ```ts
-import { createCollection } from "@obvia/collections"
-
-const slides = createCollection({
-    canvas: {
-        title: "Design visually",
-        stats: { nodes: 24 },
-    },
-    security: {
-        title: "Protect workspaces",
-        stats: { nodes: 12 },
-    },
+const providers = collect({
+    google: { label: "Google" },
+    map: { label: "Map provider" },
 })
 
-slides.canvas.id // "canvas"
-slides.canvas.title // "Design visually"
-slides.security.stats.nodes // 12
-slides.get("security")?.id // "security"
+providers.get("google")?.label // "Google"
+providers.get("map")?.label // "Map provider"
+providers.map((provider) => provider.label) // Collection method
+
+const object = providers.toObject()
+object.google.label
+object.map.label
 ```
 
-An `id` supplied inside an item is replaced by the definition key so the object key remains the single source of truth.
-
-```ts
-const items = createCollection({
-    primary: {
-        id: "wrong",
-        label: "Primary",
-    },
-})
-
-items.primary.id // "primary"
-```
-
-#### Direct-access collisions
-
-Safe definition keys are exposed directly. Keys that collide with collection methods or inherited object members remain available through `get()`.
-
-```ts
-const definitions = createCollection({
-    security: { label: "Security" },
-    map: { label: "Map" },
-    constructor: { label: "Constructor" },
-    ["__proto__"]: { label: "Prototype" },
-})
-
-definitions.security.label // "Security"
-definitions.get("map")?.label // "Map"
-definitions.get("constructor")?.label // "Constructor"
-definitions.get("__proto__")?.label // "Prototype"
-
-definitions.map((item) => item.label) // still the Collection method
-```
+For object literals, keys remain literal and `toObject()` preserves key-specific source value types. Fluent transforms return regular Collection values because transforms may break the original object key/value correlation.
 
 ### `new Collection`
 
@@ -104,7 +64,7 @@ const collection = new Collection([
 Several methods accept dot-notation paths and infer their result from the collection value type.
 
 ```ts
-const users = createCollection({
+const users = collect({
     ada: {
         profile: {
             email: "ada@example.com",
@@ -308,14 +268,22 @@ const map = collect({ a: 1, b: 2 }).toMap()
 
 Converts the collection into a plain null-prototype object. Runtime keys must be valid property keys.
 
-
-**Behavior:** null-prototype object. Accepts only string/number/symbol runtime keys; rejects other key types instead of coercing them.
+**Behavior:** null-prototype object. Accepts only string/number/symbol runtime keys; rejects other key types instead of coercing them. Numeric keys normalize to strings, and collisions such as numeric `1` plus string `"1"` throw instead of losing data. Object-literal sources preserve their exact property/value mapping in the return type.
 ```ts
-toObject(): Record<PropertyKey, TValue>
+toObject(): CollectionObject<TKey, TValue>
 ```
 
 ```ts
 collect(new Map([["draft", true]])).toObject() // { draft: true }
+
+const panels = collect({
+    editor: { kind: "editor" as const, language: "typescript" },
+    preview: { kind: "preview" as const, device: "desktop" },
+})
+
+const object = panels.toObject()
+object.editor.language
+object.preview.device
 ```
 
 ## Access
@@ -325,9 +293,9 @@ collect(new Map([["draft", true]])).toObject() // { draft: true }
 Returns the value stored at a key, or `undefined` when the key is missing.
 
 
-**Behavior:** value or `undefined`. Cannot by itself distinguish missing from a present `undefined`; pair with `has()` when needed.
+**Behavior:** value or `undefined`. Cannot by itself distinguish missing from a present `undefined`; pair with `has()` when needed. For object-literal sources, a literal key narrows the return to the value type associated with that source property.
 ```ts
-get(key: TKey): TValue | undefined
+get<TRequestedKey extends TKey>(key: TRequestedKey): TValue | undefined
 ```
 
 ```ts

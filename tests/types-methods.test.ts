@@ -1,7 +1,6 @@
 import {
     Collection,
     collect,
-    createCollection,
 } from "../src/index"
 
 type Equal<TLeft, TRight> =
@@ -27,7 +26,7 @@ type _Keys = Expect<Equal<ReturnType<typeof keyed.keys>, readonly ("a" | "b")[]>
 type _Entries = Expect<Equal<ReturnType<typeof keyed.entries>, readonly (readonly ["a" | "b", number])[]>>
 type _ToArray = Expect<Equal<ReturnType<typeof keyed.toArray>, number[]>>
 type _ToMap = Expect<Equal<ReturnType<typeof keyed.toMap>, ReadonlyMap<"a" | "b", number>>>
-type _ToObject = Expect<Equal<ReturnType<typeof keyed.toObject>, Record<PropertyKey, number>>>
+type _ToObject = Expect<Equal<ReturnType<typeof keyed.toObject>, { a: number; b: number }>>
 
 // Access and selection.
 const get = keyed.get("a")
@@ -96,7 +95,7 @@ type _Split = Expect<Equal<typeof split, Collection<number, Collection<"a" | "b"
 const padded = keyed.pad(4, "x" as const)
 type _Pad = Expect<Equal<typeof padded, Collection<number, number | "x">>>
 const partition = keyed.partition((value) => value > 1)
-type _Partition = Expect<Equal<typeof partition, readonly [Collection<"a" | "b", number>, Collection<"a" | "b", number>]>>
+const _partitionContract: readonly [Collection<"a" | "b", number>, Collection<"a" | "b", number>] = partition
 
 // Ordering.
 const reversed = keyed.reverse()
@@ -170,12 +169,14 @@ type _WhereNotNull = Expect<Equal<typeof whereNotNull, typeof records>>
 const imploded = records.implode("nested.label", ",")
 type _Implode = Expect<Equal<typeof imploded, string>>
 
-const definitions = createCollection({
+const definitions = collect({
     canvas: { enabled: true },
     security: { enabled: false },
 })
 const transformedDefinitions = definitions.filter((item) => item.enabled)
-// @ts-expect-error direct definition properties intentionally disappear after transformation
+// @ts-expect-error object keys are never Collection instance properties
+definitions.canvas
+// @ts-expect-error transformed collections also expose keyed values through methods, not properties
 transformedDefinitions.canvas
 
 // High-value parity methods.

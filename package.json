@@ -22,11 +22,6 @@
       "import": "./dist/collect.js",
       "default": "./dist/collect.js"
     },
-    "./create-collection": {
-      "types": "./dist/create-collection.d.ts",
-      "import": "./dist/create-collection.js",
-      "default": "./dist/create-collection.js"
-    },
     "./package.json": "./package.json"
   },
   "files": [

@@ -2,10 +2,10 @@
 
 A strongly typed, immutable collection toolkit for TypeScript.
 
-`@obvia/collections` gives keyed runtime data a fluent API without forcing it into arrays, and adds a second factory for source-defined registries whose object keys should become stable item IDs.
+`@obvia/collections` gives arrays, object records, maps, and keyed iterables one fluent API while preserving their meaningful key and value types.
 
 ```ts
-import { collect, createCollection } from "@obvia/collections"
+import { collect } from "@obvia/collections"
 ```
 
 ## Installation
@@ -14,19 +14,9 @@ import { collect, createCollection } from "@obvia/collections"
 bun add @obvia/collections
 ```
 
-The package is also installable with npm-compatible package managers:
-
-```bash
-npm install @obvia/collections
-pnpm add @obvia/collections
-yarn add @obvia/collections
-```
-
-The package is ESM-only, has no runtime dependencies, and ships TypeScript declarations.
+The package is ESM-only, has no runtime dependencies, and ships TypeScript declarations and source maps.
 
 ## Quick start
-
-Use `collect()` when the values already exist at runtime:
 
 ```ts
 import { collect } from "@obvia/collections"
@@ -46,165 +36,154 @@ const names = users
 // ["Ada", "Linus"]
 ```
 
-Use `createCollection()` when the keys in a definition are part of the domain model:
+Object records use the same factory and the same Collection API:
 
 ```ts
-import { createCollection } from "@obvia/collections"
-
-const providers = createCollection({
+const providers = collect({
     google: {
         label: "Google",
         enabled: true,
     },
     github: {
         label: "GitHub",
-        enabled: true,
+        enabled: false,
     },
 })
 
-providers.google.id
-// "google"
+providers.get("google")?.label
+// "Google"
 
-providers.github.label
+providers.toObject().github.label
 // "GitHub"
 ```
 
-Both factories return the same fluent collection abstraction. The difference is how the root collection is created and typed.
+There is only one creation model to learn: **give `collect()` your data, work through Collection methods, and convert at the boundary when needed.**
 
-## `collect()` vs `createCollection()`
+## One factory, one model
 
-This distinction is the most important concept in the package.
+`collect()` accepts the common JavaScript collection sources:
 
-| | `collect()` | `createCollection()` |
+| Source | Key behavior | Value behavior |
 | --- | --- | --- |
-| Intended input | Runtime data | Source-defined keyed definitions |
-| Arrays | Yes | No |
-| Maps / entry iterables | Yes | No |
-| Plain objects | Yes | Yes, as definitions |
-| Injects an `id` field | No | Yes, from each object key |
-| Direct `collection.someKey` access | No | Yes, when the key does not collide with the API |
-| Preserves literal definition keys | As normal keys | Yes, including key-specific item types |
-| Fluent transformations | `Collection` | Return regular `Collection` values |
-
-### Choose `collect()` for runtime data
-
-Use it for values coming from APIs, databases, files, computed results, arrays, maps, and iterables.
+| no argument | empty numeric collection | — |
+| array / readonly array | `0..n-1` | values preserved |
+| object record | enumerable own string keys | values preserved |
+| `ReadonlyMap` | key identity preserved | values preserved |
+| entry iterable | yielded keys preserved | yielded values preserved |
+| existing `Collection` | unchanged | same instance returned |
 
 ```ts
-const response = [
-    { id: "a", score: 82 },
-    { id: "b", score: 97 },
-    { id: "c", score: 74 },
-]
-
-const ranked = collect(response)
-    .sortByDesc("score")
-    .take(2)
-
-ranked.items()
+const numbers = collect([10, 20, 30])
+const settings = collect({ theme: "system", locale: "en" })
+const keyed = collect(new Map([["first", 10], ["second", 20]]))
 ```
 
-`collect()` does not modify your values:
+### Object records are data, not definitions
+
+Object keys become Collection keys. The values are not modified, cloned, or decorated.
 
 ```ts
-const users = collect({
-    ada: { name: "Ada" },
-})
+const source = {
+    google: { label: "Google" },
+}
 
-users.get("ada")
-// { name: "Ada" }
+const providers = collect(source)
 
-// No generated `id` was added.
+providers.get("google") === source.google
+// true
+
+providers.get("google")
+// { label: "Google" }
 ```
 
-### Choose `createCollection()` for definitions
-
-Use it when the keys themselves identify definitions such as providers, commands, panels, routes, tools, adapters, or UI slides.
+`collect()` never synthesizes an `id` field from an object key. If an ID belongs in the domain model, keep it explicit in the data:
 
 ```ts
-const commands = createCollection({
-    save: {
-        label: "Save",
-        shortcut: "Mod+S",
-    },
-    publish: {
-        label: "Publish",
-        shortcut: "Mod+Shift+P",
+const providers = collect({
+    google: {
+        id: "google",
+        label: "Google",
     },
 })
-
-commands.save.id
-// "save"
-
-commands.get("publish")?.shortcut
-// "Mod+Shift+P"
 ```
 
-The generated `id` is canonical. A value cannot override the definition key:
+This keeps the Collection layer from silently changing source data.
+
+### Collection keys never become Collection properties
+
+Object keys do not get attached to the Collection instance:
 
 ```ts
-const definitions = createCollection({
-    security: {
-        id: "wrong",
-        title: "Security",
+const providers = collect({
+    google: { label: "Google" },
+    map: { label: "Map provider" },
+})
+
+providers.get("google")
+providers.get("map")
+
+providers.map((provider) => provider.label)
+// `map` remains the Collection method
+```
+
+That rule completely avoids collisions with names such as `map`, `filter`, `count`, `constructor`, or future Collection methods.
+
+When object-style access is useful, convert explicitly:
+
+```ts
+const object = providers.toObject()
+
+object.google.label
+object.map.label
+```
+
+`toObject()` returns a null-prototype snapshot, so keys such as `__proto__` are data rather than prototype mutation hooks.
+
+### Literal object typing is preserved
+
+Object literals keep their exact key set, and `toObject()` keeps key-specific value types:
+
+```ts
+const panels = collect({
+    editor: {
+        kind: "editor" as const,
+        language: "typescript",
+    },
+    preview: {
+        kind: "preview" as const,
+        device: "desktop",
     },
 })
 
-definitions.security.id
-// "security"
+panels.get("editor")?.language
+// string
+
+const object = panels.toObject()
+
+object.editor.language
+object.preview.device
+
+// panels.get("missing")
+// TypeScript error
 ```
 
-### Direct access exists only on the definition root
+Fluent transformations return regular `Collection` values. That is intentional: a transform may change values or keys, so the original object key-to-specific-value relationship may no longer be valid.
 
-Direct property access is a convenience of the typed object produced by `createCollection()`:
+### Object input follows `Object.entries()`
 
-```ts
-const providers = createCollection({
-    google: { enabled: true },
-    github: { enabled: false },
-})
+For object records, runtime membership follows `Object.entries()` semantics:
 
-providers.google
-```
+- enumerable own string properties are collected;
+- inherited properties are ignored;
+- non-enumerable properties are ignored;
+- numeric object keys normalize to strings;
+- symbol properties are ignored.
 
-A transformation returns a regular `Collection`, because the original literal-key-to-value relationship may no longer be valid:
-
-```ts
-const enabled = providers.filter((provider) => provider.enabled)
-
-enabled.get("google")
-// supported
-
-// enabled.google
-// intentionally not part of the transformed type
-```
-
-That rule keeps fluent transformations honest instead of pretending their output still has the original static definition shape.
-
-### Method-name collisions stay safe
-
-Collection methods win when a definition key has the same name as part of the API. The item is still available through `get()`.
-
-```ts
-const definitions = createCollection({
-    map: { label: "Map definition" },
-    filter: { label: "Filter definition" },
-    security: { label: "Security" },
-})
-
-definitions.map((item) => item.label)
-definitions.get("map")?.label
-// "Map definition"
-
-definitions.security.label
-// "Security"
-```
-
-This avoids maintaining an artificial list of forbidden definition IDs.
+Record-like objects created with `Object.create(customPrototype)` are accepted. Structured instances such as `Date`, `RegExp`, and class instances are rejected rather than silently interpreted as records.
 
 ## Core model
 
-A `Collection<TKey, TValue>` keeps keys and values together. Most transformations return a new collection and leave the source untouched.
+A `Collection<TKey, TValue>` keeps keys and values together. Transformations return new collections and leave the source membership unchanged.
 
 ```ts
 const source = collect(new Map([
@@ -224,7 +203,7 @@ sorted.items()
 
 ### Keys are first-class
 
-Callbacks receive both value and key:
+Callbacks receive both value and key where the operation needs them:
 
 ```ts
 const labels = collect({
@@ -235,11 +214,11 @@ const labels = collect({
 labels.map((label, key) => `${key}:${label}`)
 ```
 
-Methods preserve or replace keys according to their meaning. For example, `filter()` preserves keys, `map()` preserves keys, `keyBy()` derives new keys, and `values()` creates a numerically keyed collection.
+Methods preserve or replace keys according to their meaning. `filter()` and `map()` preserve keys; `keyBy()` derives new keys; `values()` intentionally reindexes values numerically.
 
 ### Immutability is structural
 
-Collection operations do not mutate the source collection:
+Operations do not mutate Collection membership:
 
 ```ts
 const source = collect([1, 2, 3])
@@ -252,11 +231,11 @@ changed.items()
 // [1, 20, 3]
 ```
 
-Values themselves are not deep-cloned or frozen. If a collection contains mutable objects, mutating one of those objects is still visible through every reference to that object.
+Contained values are not deep-cloned or frozen. Mutating an object stored as a value remains visible through every reference to that object.
 
 ### Equality uses JavaScript semantics
 
-Set and membership operations use strict JavaScript-oriented equality behavior rather than coercive comparisons. When identity should be based on a field, use a selector or predicate where the method supports one.
+Membership and set operations use JavaScript-oriented equality rather than coercive comparisons.
 
 ```ts
 const records = collect([
@@ -282,11 +261,11 @@ users.sortByDesc("score").pluck("name").items()
 // ["first", "second"]
 ```
 
-`null`, `undefined`, and `NaN` are handled deterministically by selector-based ordering rather than relying on engine-specific coercion.
+Selector ordering handles `null`, `undefined`, and `NaN` deterministically rather than relying on engine-specific coercion.
 
 ## Common workflows
 
-### Filter, order, and project runtime records
+### Filter, order, and project records
 
 ```ts
 const users = collect(new Map([
@@ -299,11 +278,9 @@ const admins = users
     .where("role", "admin")
     .sortByDesc("score")
     .map((user, key) => ({ key, score: user.score }))
-
-admins.items()
 ```
 
-### Group records and summarize each group
+### Group and summarize
 
 ```ts
 const orders = collect([
@@ -321,8 +298,6 @@ totals.toObject()
 ```
 
 ### Use type-safe nested paths
-
-Nested property selectors are checked by TypeScript:
 
 ```ts
 const users = collect([
@@ -342,53 +317,9 @@ users.sum("profile.metrics.score")
 // TypeScript error
 ```
 
-Optional nested properties remain optional in the inferred output type.
+Optional intermediate properties remain optional in the inferred output type.
 
-### Select one required record
-
-Use the throwing variants when absence is a programming or domain error:
-
-```ts
-const configuration = collect({
-    locale: "en",
-    timezone: "UTC",
-})
-
-const locale = configuration.get("locale")
-const required = configuration.only(["locale"]).sole()
-```
-
-`firstOrFail()`, `lastOrFail()`, and `sole()` use exported collection error classes so callers can distinguish collection contract failures from unrelated exceptions.
-
-### Work with windows and pages
-
-```ts
-const records = collect(Array.from({ length: 20 }, (_, index) => index + 1))
-
-const firstPage = records.take(5)
-const secondPage = records.skip(5).take(5)
-const chunks = records.chunk(5)
-const windows = records.sliding(3, 1)
-```
-
-All invalid size/count arguments are rejected rather than silently normalized into surprising output.
-
-### Apply conditional pipelines
-
-```ts
-const query = collect(users)
-
-const result = query
-    .when(includeInactive, (items) => items)
-    .unless(sortDisabled, (items) => items.sortBy("name"))
-    .take(limit)
-```
-
-`tap()` is useful for observation without breaking a chain, while `pipe()` intentionally exits or reshapes the chain based on the callback return value.
-
-### Project and regroup records
-
-Use `select()` when downstream code needs only a stable subset of each record, and `mapToGroups()` when one projection should become grouped output.
+### Project and regroup
 
 ```ts
 const summaries = users.select(["id", "name", "team"] as const)
@@ -397,12 +328,41 @@ const namesByTeam = users.mapToGroups((user) => [
     user.team,
     user.name,
 ] as const)
-
-const flattenedSettings = settings.dot()
-const restoredSettings = flattenedSettings.undot()
 ```
 
-These operations remain immutable: projection and regrouping never rewrite the source collection.
+For nested object data, `dot()` and `undot()` provide explicit shape conversion:
+
+```ts
+const settings = collect({
+    appearance: {
+        theme: "dark",
+    },
+})
+
+const flat = settings.dot()
+const restored = flat.undot()
+```
+
+`flatten()` is different: it flattens nested **iterable values**. It is not an object-view or property-access operation.
+
+```ts
+collect([[1, 2], [3]]).flatten().items()
+// [1, 2, 3]
+```
+
+### Work with windows and pages
+
+```ts
+const records = collect(Array.from({ length: 20 }, (_, index) => index + 1))
+
+records.take(5)
+records.skip(5).take(5)
+records.chunk(5)
+records.sliding(3, 1)
+records.forPage(2, 5)
+```
+
+Invalid size and count arguments are rejected rather than silently normalized.
 
 ### Reconcile keyed data
 
@@ -424,25 +384,26 @@ settings.toObject()
 
 Use `diffKeys()` and `intersectByKeys()` when key identity matters; use `diff()` and `intersect()` when value identity matters.
 
-### Convert only at boundaries
+### Convert at boundaries
 
-Keep the fluent abstraction while processing and convert when data leaves the collection layer:
+Keep the fluent abstraction while processing and choose the native representation only where it is needed:
 
 ```ts
 const activeUsers = collect(users)
     .filter((user) => user.active)
     .sortBy("name")
 
-const values = activeUsers.items()
-const keyed = activeUsers.toMap()
-const object = activeUsers.toObject()
+activeUsers.items()
+activeUsers.toArray()
+activeUsers.toMap()
+activeUsers.toObject()
 ```
 
-`toObject()` should only be used when the collection keys are valid property keys for the intended object representation.
+`toObject()` rejects non-property keys and rejects collisions caused by JavaScript property-key normalization, such as a collection containing both numeric key `1` and string key `"1"`.
 
 ## API at a glance
 
-The table below is intentionally compact. The complete behavior, signatures, examples, error cases, and return semantics for every method live in the **[API reference](docs/api.md)**.
+The table is intentionally compact. Complete behavior, signatures, examples, edge cases, and return semantics live in the **[API reference](docs/api.md)**.
 
 | Area | Methods |
 | --- | --- |
@@ -463,8 +424,6 @@ The table below is intentionally compact. The complete behavior, signatures, exa
 | Strings | `join`, `implode` |
 | Iteration | `[Symbol.iterator]` |
 
-Full reference: **[docs/api.md](docs/api.md)**
-
 ## TypeScript behavior
 
 ### Type guards narrow values
@@ -480,31 +439,28 @@ numbers.items()
 // readonly number[]
 ```
 
-### Definition access keeps key-specific item types
+### Object keys stay literal
 
 ```ts
-const panels = createCollection({
-    editor: {
-        kind: "editor" as const,
-        language: "typescript",
-    },
-    preview: {
-        kind: "preview" as const,
-        device: "desktop",
-    },
-})
+const statuses = collect({
+    draft: { terminal: false },
+    published: { terminal: true },
+} as const)
 
-panels.editor.language
-panels.preview.device
+statuses.keys()
+// readonly ("draft" | "published")[]
 
-panels.get("editor")?.language
+statuses.get("draft")
+
+// statuses.get("missing")
+// TypeScript error
 ```
 
-The return type of `get("editor")` is tied to the literal key rather than widened to the union of every definition item.
+For object sources, `toObject()` also preserves each property's source value type.
 
 ## Iteration
 
-Collections are iterable as key/value entries:
+Collections iterate as key/value entries:
 
 ```ts
 for (const [key, value] of collection) {
@@ -512,13 +468,7 @@ for (const [key, value] of collection) {
 }
 ```
 
-Use `items()` when only values are needed:
-
-```ts
-for (const value of collection.items()) {
-    console.log(value)
-}
-```
+Use `items()` when only values are needed.
 
 ## Errors
 
@@ -531,7 +481,7 @@ import {
 } from "@obvia/collections"
 ```
 
-Typical throwing operations include `firstOrFail()`, `lastOrFail()`, and `sole()`. See the [API reference](docs/api.md#errors) for exact behavior.
+Typical throwing operations include `firstOrFail()`, `lastOrFail()`, and `sole()`.
 
 ## Package exports
 
@@ -539,7 +489,6 @@ Typical throwing operations include `firstOrFail()`, `lastOrFail()`, and `sole()
 import {
     Collection,
     collect,
-    createCollection,
 } from "@obvia/collections"
 ```
 
@@ -548,12 +497,11 @@ Focused subpath imports are also available:
 ```ts
 import { Collection } from "@obvia/collections/collection"
 import { collect } from "@obvia/collections/collect"
-import { createCollection } from "@obvia/collections/create-collection"
 ```
 
 ## Testing and quality
 
-The package uses Bun for runtime tests. Verification is intentionally split by responsibility:
+Runtime tests use `bun:test`. Verification is split by responsibility:
 
 ```bash
 bun run test
@@ -561,13 +509,9 @@ bun run test:coverage
 bun run benchmark
 ```
 
-The suite covers unit behavior, public contracts, negative/guard behavior, collection invariants, native-equivalence properties, type-level contracts, and deterministic operation-count expectations. Wall-clock benchmark results are observational and are not used as correctness assertions.
+The suite covers unit behavior, public contracts, negative behavior, collection invariants, native-equivalence properties, type-level contracts, and deterministic operation-count expectations. Wall-clock benchmark results are observational and are not used as correctness assertions.
 
-GitHub Actions run these concerns independently:
-
-- **Test** validates runtime behavior, types, and package build integrity.
-- **Coverage** enforces the configured source coverage threshold and publishes the LCOV report as a workflow artifact.
-- **Benchmark** records performance measurements independently so noisy timing data cannot make correctness checks flaky.
+GitHub Actions keep **Test**, **Coverage**, and **Benchmark** independent. Publishing remains manual.
 
 ### Local development
 
@@ -578,21 +522,11 @@ bun run test
 bun run build
 ```
 
-Focused suites are available when working on a specific contract:
-
-```bash
-bun run test:unit
-bun run test:behavior
-bun run test:guards
-bun run test:contracts
-bun run test:properties
-bun run test:performance
-bun run test:types
-```
+Focused suites are available through `test:unit`, `test:behavior`, `test:guards`, `test:contracts`, `test:properties`, `test:performance`, and `test:types`.
 
 ## Documentation
 
-- **[API reference](docs/api.md)** — complete method signatures, behavior, examples, edge cases, and errors.
+- **[API reference](docs/api.md)** — complete signatures, behavior, examples, edge cases, and errors.
 - **[Release guide](docs/releasing.md)** — manual verification and publishing checklist.
 - **[CHANGELOG](CHANGELOG.md)** — release history and noteworthy changes.
 

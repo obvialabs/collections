@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect, createCollection } from "../../dist/index.js"
+import { collect } from "../../dist/index.js"
 
-const records = createCollection({
+const records = collect({
     alpha: { meta: { score: 10, tag: "a" }, active: true, note: null },
     beta: { meta: { score: 20, tag: "b" }, active: false, note: "ready" },
     gamma: { meta: { score: 30, tag: "b" }, active: true, note: undefined },
@@ -30,7 +30,7 @@ describe("query helpers", () => {
 
     test("pluck and keyBy resolve nested paths", () => {
         expect(records.pluck("meta.score").items()).toEqual([10, 20, 30])
-        expect(records.keyBy("meta.tag").get("b")?.id).toBe("gamma")
+        expect(records.keyBy("meta.tag").get("b")?.meta.score).toBe(30)
         expect(records.keyBy((value) => `score:${value.meta.score}`).keys()).toEqual([
             "score:10",
             "score:20",

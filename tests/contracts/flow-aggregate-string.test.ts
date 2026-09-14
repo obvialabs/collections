@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect, createCollection } from "../../dist/index.js"
+import { collect } from "../../dist/index.js"
 
 describe("flow, aggregate, string and iteration contracts", () => {
     test("reduce visits values in iteration order, exposes keys and returns initial on empty", () => {
@@ -169,7 +169,7 @@ describe("flow, aggregate, string and iteration contracts", () => {
     })
 
     test("implode resolves a nested path and stringifies each resolved value", () => {
-        const users = createCollection({
+        const users = collect({
             ada: { profile: { email: "ada@example.com" } },
             grace: { profile: { email: "grace@example.com" } },
         })

@@ -7,6 +7,17 @@ type RuntimeObjectKey<TKey> = TKey extends string
         ? `${TKey}`
         : never
 
+/** Resolves the enumerable string-keyed shape produced by `Object.entries()`. */
+type ObjectCollectionShape<TObject extends Record<string, unknown>> = {
+    -readonly [TKey in Extract<keyof TObject, string | number> as RuntimeObjectKey<TKey>]: TObject[TKey]
+}
+
+/** Resolves the runtime key union for an object-backed collection. */
+type ObjectCollectionKey<TObject extends Record<string, unknown>> = keyof ObjectCollectionShape<TObject>
+
+/** Resolves the runtime value union for an object-backed collection. */
+type ObjectCollectionValue<TObject extends Record<string, unknown>> = ObjectCollectionShape<TObject>[ObjectCollectionKey<TObject>]
+
 /** Determines whether a value behaves like an object record. */
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
     if (value === null || typeof value !== "object") return false
@@ -30,9 +41,9 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
 export function collect(): Collection<number, unknown>
 
 /** Returns an existing collection without creating another instance. */
-export function collect<TKey, TValue>(
-    value: Collection<TKey, TValue>,
-): Collection<TKey, TValue>
+export function collect<const TCollection extends Collection<any, any, any>>(
+    value: TCollection,
+): TCollection
 
 /** Creates a numerically keyed collection from an array. */
 export function collect<const TValue>(
@@ -44,12 +55,20 @@ export function collect<TKey, TValue>(
     value: ReadonlyMap<TKey, TValue>,
 ): Collection<TKey, TValue>
 
-/** Creates a string-keyed collection from an object record. */
+/**
+ * Creates a keyed collection from an object record.
+ *
+ * Literal object keys remain available to `get()` and `toObject()` with their
+ * key-specific value types. Runtime membership follows `Object.entries()`:
+ * only enumerable own string properties participate, numeric keys normalize
+ * to strings, and symbol properties are ignored.
+ */
 export function collect<const TObject extends Record<string, unknown>>(
     value: TObject,
 ): Collection<
-    RuntimeObjectKey<Extract<keyof TObject, string | number>>,
-    TObject[Extract<keyof TObject, string | number>]
+    ObjectCollectionKey<TObject>,
+    ObjectCollectionValue<TObject>,
+    ObjectCollectionShape<TObject>
 >
 
 /** Creates a collection from an iterable of key/value tuples. */
@@ -62,18 +81,27 @@ export function collect<TKey, TValue>(
  *
  * Arrays receive numeric keys, maps and entry iterables preserve their keys,
  * object records preserve their enumerable own string properties, and existing
- * collections are returned unchanged. Unsupported runtime values throw a
- * `TypeError` rather than being silently coerced into an empty collection.
+ * collections are returned unchanged. `collect()` never injects fields or
+ * exposes source keys as properties on the collection instance; use `get()`
+ * while working with the collection and `toObject()` when object-style access
+ * is wanted at a boundary.
+ *
+ * Unsupported runtime values throw a `TypeError` rather than being silently
+ * coerced into an empty collection.
  *
  * **Usage**
  * ```ts
+ * const providers = collect({
+ *   google: { label: "Google" },
+ *   github: { label: "GitHub" },
+ * })
+ *
+ * providers.get("google")?.label
+ * providers.toObject().github.label
+ *
  * collect([1, 2, 3])
  *   .filter((value) => value > 1)
  *   .map((value) => value * 2)
- *
- * collect(new Map([
- *   ["admin", user],
- * ]))
  * ```
  */
 export function collect(
@@ -117,7 +145,7 @@ export function collect(
         )
     }
 
-    // Plain objects preserve their enumerable own string properties.
+    // Object records preserve their enumerable own string properties.
     if (isObjectRecord(value)) {
         return new Collection(Object.entries(value))
     }

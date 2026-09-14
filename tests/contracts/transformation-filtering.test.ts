@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { Collection, collect, createCollection } from "../../dist/index.js"
+import { Collection, collect } from "../../dist/index.js"
 
 describe("transformation and filtering contracts", () => {
     test("map preserves keys and provides value, key and the source collection", () => {
@@ -118,7 +118,7 @@ describe("transformation and filtering contracts", () => {
     })
 
     test("pluck resolves typed nested paths while preserving source keys", () => {
-        const users = createCollection({
+        const users = collect({
             ada: { profile: { email: "ada@example.com", active: true } },
             grace: { profile: { email: "grace@example.com", active: false } },
         })

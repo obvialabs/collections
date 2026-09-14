@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { Collection, collect, createCollection } from "../../dist/index.js"
+import { Collection, collect } from "../../dist/index.js"
 
 describe("edge semantics and non-obvious contracts", () => {
     test("entry snapshots can be mutated without changing the collection", () => {
@@ -17,17 +17,18 @@ describe("edge semantics and non-obvious contracts", () => {
         expect(source.get("a")?.value).toBe(1)
     })
 
-    test("createCollection keys() remains authoritative when direct-access names collide", () => {
-        const collection = createCollection({
+    test("object-source keys stay independent from Collection member names", () => {
+        const collection = collect({
             safe: { label: "Safe" },
             map: { label: "Map" },
             constructor: { label: "Constructor" },
         })
 
-        expect(Object.keys(collection)).toEqual(["safe"])
+        expect(Object.keys(collection)).toEqual([])
         expect(collection.keys()).toEqual(["safe", "map", "constructor"])
-        expect(collection.get("map")?.id).toBe("map")
-        expect(collection.get("constructor")?.id).toBe("constructor")
+        expect(collection.get("map")?.label).toBe("Map")
+        expect(collection.get("constructor")?.label).toBe("Constructor")
+        expect(collection.toObject().safe.label).toBe("Safe")
     })
 
     test("flatten(0) preserves each top-level value as one value while reindexing", () => {

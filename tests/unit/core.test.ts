@@ -5,7 +5,6 @@ import {
     CollectionItemNotFoundError,
     CollectionMultipleItemsError,
     collect,
-    createCollection,
 } from "../../dist/index.js"
 
 describe("core collection behavior", () => {
@@ -22,17 +21,20 @@ describe("core collection behavior", () => {
         expect(collection.notEmpty()).toBe(true)
     })
 
-    test("createCollection injects literal ids and exposes safe direct keys", () => {
-        const slides = createCollection({
+    test("collect(object) keeps literal keys without injecting fields or shadowing methods", () => {
+        const slides = collect({
             canvas: { title: "Canvas" },
             security: { title: "Security" },
             map: { title: "Map item" },
         })
 
-        expect(slides.canvas.id).toBe("canvas")
-        expect(slides.security.title).toBe("Security")
-        expect(slides.get("map")?.id).toBe("map")
+        expect(slides.get("canvas")?.title).toBe("Canvas")
+        expect(slides.get("security")?.title).toBe("Security")
+        expect(slides.get("map")?.title).toBe("Map item")
+        expect("id" in slides.get("canvas")!).toBe(false)
+        expect(Object.prototype.hasOwnProperty.call(slides, "canvas")).toBe(false)
         expect(typeof slides.map).toBe("function")
+        expect(slides.toObject().canvas.title).toBe("Canvas")
     })
 
     test("getOr distinguishes missing keys from undefined values", () => {

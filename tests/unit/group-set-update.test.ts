@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test"
 
-import { collect, createCollection } from "../../dist/index.js"
+import { collect } from "../../dist/index.js"
 
 describe("grouping, sets and immutable updates", () => {
-    const users = createCollection({
+    const users = collect({
         a: { role: "admin", score: 10 },
         b: { role: "member", score: 20 },
         c: { role: "member", score: 20 },

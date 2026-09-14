@@ -1,10 +1,6 @@
 import {
     Collection,
     collect,
-    createCollection,
-    type CollectionItem,
-    type CollectionItems,
-    type DefinedCollection,
 } from "../src/index"
 
 type Equal<TLeft, TRight> =
@@ -35,18 +31,29 @@ type _ReadonlyArray = Expect<Equal<typeof readonlyArrayCollection, Collection<nu
 const objectCollection = collect({ alpha: 1, beta: "two" } as const)
 type _ObjectKeys = Expect<Equal<ReturnType<typeof objectCollection.keys>[number], "alpha" | "beta">>
 type _ObjectValues = Expect<Equal<ReturnType<typeof objectCollection.items>[number], 1 | "two">>
+const objectAlpha = objectCollection.get("alpha")
+const objectBeta = objectCollection.get("beta")
+type _ObjectAlphaGet = Expect<Equal<typeof objectAlpha, 1 | undefined>>
+type _ObjectBetaGet = Expect<Equal<typeof objectBeta, "two" | undefined>>
+type _ObjectAlphaProperty = Expect<Equal<ReturnType<typeof objectCollection.toObject>["alpha"], 1>>
+type _ObjectBetaProperty = Expect<Equal<ReturnType<typeof objectCollection.toObject>["beta"], "two">>
 
 const runtimeRegistry = collect({
     google: { label: "Google" },
     github: { label: "GitHub" },
 } as const)
 type _RuntimeRegistryKeys = Expect<Equal<ReturnType<typeof runtimeRegistry.keys>[number], "google" | "github">>
+const google = runtimeRegistry.get("google")
+type _GoogleLabel = Expect<Equal<NonNullable<typeof google>["label"], "Google">>
+type _GithubObjectLabel = Expect<Equal<ReturnType<typeof runtimeRegistry.toObject>["github"]["label"], "GitHub">>
 
-// `collect()` preserves runtime values; it does not inject IDs or direct properties.
-// @ts-expect-error direct definition properties belong to createCollection() only
+// Object keys never become Collection instance properties.
+// @ts-expect-error object-style access is explicit through toObject()
 runtimeRegistry.google
-// @ts-expect-error collect() does not synthesize an id field
+// @ts-expect-error collect() never synthesizes an id field
 runtimeRegistry.get("google")?.id
+// @ts-expect-error get() only accepts known literal object keys
+runtimeRegistry.get("missing")
 
 const mapCollection = collect(new Map<"a" | "b", number>([["a", 1], ["b", 2]]))
 type _MapCollection = Expect<Equal<typeof mapCollection, Collection<"a" | "b", number>>>
@@ -61,9 +68,10 @@ function* entryGenerator(): Generator<readonly ["a" | "b", number]> {
 const iterableCollection = collect(entryGenerator())
 type _IterableCollection = Expect<Equal<typeof iterableCollection, Collection<"a" | "b", number>>>
 
-const existing = collect([1, 2, 3])
+const existing = collect({ alpha: { value: 1 as const } })
 const same = collect(existing)
 type _Existing = Expect<Equal<typeof same, typeof existing>>
+type _ExistingObjectShape = Expect<Equal<ReturnType<typeof same.toObject>["alpha"]["value"], 1>>
 
 const numericObjectCollection = collect({
     1: "one",
@@ -74,15 +82,16 @@ type _NumericObjectKeys = Expect<Equal<
     ReturnType<typeof numericObjectCollection.keys>[number],
     "1" | "alpha"
 >>
+type _NumericObjectValue = Expect<Equal<ReturnType<typeof numericObjectCollection.toObject>["1"], "one">>
 // @ts-expect-error object numeric keys are normalized to strings by Object.entries()
 numericObjectCollection.get(1)
 numericObjectCollection.get("1")
 
 // ---------------------------------------------------------------------------
-// createCollection()
+// object-source key/value correlation
 // ---------------------------------------------------------------------------
 
-const slides = createCollection({
+const slides = collect({
     canvas: {
         title: "Canvas",
         meta: { enabled: true, score: 10 },
@@ -97,57 +106,35 @@ const slides = createCollection({
     },
 })
 
-type SlidesDefinition = {
-    readonly canvas: {
-        readonly title: "Canvas"
-        readonly meta: { readonly enabled: true; readonly score: 10 }
-    }
-    readonly security: {
-        readonly title: "Security"
-        readonly meta: { readonly enabled: false; readonly score: 20 }
-    }
-    readonly map: {
-        readonly title: "Map"
-        readonly meta: { readonly enabled: true; readonly score: 30 }
-    }
-}
-
-type _SlidesIsDefined = Expect<Extends<typeof slides, DefinedCollection<SlidesDefinition>>>
-type _CanvasId = Expect<Equal<typeof slides.canvas.id, "canvas">>
-type _SecurityTitle = Expect<Equal<typeof slides.security.title, "Security">>
+type Slide = ReturnType<typeof slides.items>[number]
 type _Keys = Expect<Equal<ReturnType<typeof slides.keys>[number], "canvas" | "security" | "map">>
 type _MapRemainsMethod = Expect<Equal<typeof slides.map extends (...args: any[]) => any ? true : false, true>>
 
+type _CanvasObjectTitle = Expect<Equal<ReturnType<typeof slides.toObject>["canvas"]["title"], "Canvas">>
+type _MapObjectTitle = Expect<Equal<ReturnType<typeof slides.toObject>["map"]["title"], "Map">>
+
 const security = slides.get("security")
-type _ExactGetId = Expect<Equal<NonNullable<typeof security>["id"], "security">>
 type _ExactGetTitle = Expect<Equal<NonNullable<typeof security>["title"], "Security">>
+type _ExactGetScore = Expect<Equal<NonNullable<typeof security>["meta"]["score"], 20>>
 
-type _CollectionItem = Expect<Equal<
-    CollectionItem<SlidesDefinition, "canvas">["id"],
-    "canvas"
->>
-type _CollectionItems = Expect<Equal<
-    CollectionItems<SlidesDefinition>["id"],
-    "canvas" | "security" | "map"
->>
-
-const overriddenId = createCollection({
+// Collection values remain exactly the values supplied by the source.
+const suppliedId = collect({
     primary: {
-        id: "wrong",
-        label: "Primary",
+        id: "source-id" as const,
+        label: "Primary" as const,
     },
 })
-type _CanonicalId = Expect<Equal<typeof overriddenId.primary.id, "primary">>
+const primary = suppliedId.get("primary")
+type _SuppliedIdIsUntouched = Expect<Equal<NonNullable<typeof primary>["id"], "source-id">>
 
-const legacyCollisionDefinitions = createCollection({
-    ["__proto__"]: { label: "Proto" },
-    __defineGetter__: { label: "Getter" },
-    safe: { label: "Safe" },
+const collisionSource = collect({
+    map: { label: "Map item" as const },
+    filter: { label: "Filter item" as const },
+    constructor: { label: "Constructor item" as const },
 })
-// Legacy Object.prototype members are intentionally excluded from the typed direct-item surface.
-// @ts-expect-error use get() for keys that collide with inherited runtime members
-legacyCollisionDefinitions.__defineGetter__
-type _LegacySafeDirectId = Expect<Equal<typeof legacyCollisionDefinitions.safe.id, "safe">>
+const mapItem = collisionSource.get("map")
+type _CollisionGet = Expect<Equal<NonNullable<typeof mapItem>["label"], "Map item">>
+type _CollisionObject = Expect<Equal<ReturnType<typeof collisionSource.toObject>["filter"]["label"], "Filter item">>
 
 // ---------------------------------------------------------------------------
 // key-preserving transformations
@@ -182,7 +169,7 @@ type _FirstNarrowed = Expect<Equal<typeof firstNarrowed, string | undefined>>
 const keyMapped = slides.mapKeys((slide) => slide.title)
 type _MapKeys = Expect<Equal<ReturnType<typeof keyMapped.keys>[number], "Canvas" | "Security" | "Map">>
 
-const pairMapped = slides.mapWithKeys((slide) => [slide.id, slide.title.length] as const)
+const pairMapped = slides.mapWithKeys((slide, key) => [key, slide.title.length] as const)
 type _MapWithKeysKeys = Expect<Equal<ReturnType<typeof pairMapped.keys>[number], "canvas" | "security" | "map">>
 type _MapWithKeysValues = Expect<Equal<ReturnType<typeof pairMapped.items>[number], number>>
 
@@ -195,17 +182,17 @@ type _CollapseValues = Expect<Equal<ReturnType<typeof collapsed.items>[number], 
 
 const valuesCollection = slides.values()
 type _ValuesKeys = Expect<Equal<ReturnType<typeof valuesCollection.keys>[number], number>>
-type _ValuesItems = Expect<Equal<ReturnType<typeof valuesCollection.items>[number]["id"], "canvas" | "security" | "map">>
+type _ValuesItems = Expect<Equal<ReturnType<typeof valuesCollection.items>[number], Slide>>
 
-const prepended = slides.prepend({ id: "intro" as const })
+const prepended = slides.prepend({ title: "Intro" as const, meta: { enabled: true as const, score: 0 as const } })
 type _PrependKeys = Expect<Equal<ReturnType<typeof prepended.keys>[number], number>>
-type _PrependValues = Expect<Equal<ReturnType<typeof prepended.items>[number]["id"], "canvas" | "security" | "map" | "intro">>
+type _PrependTitle = Expect<Equal<ReturnType<typeof prepended.items>[number]["title"], Slide["title"] | "Intro">>
 
 // ---------------------------------------------------------------------------
 // nested paths
 // ---------------------------------------------------------------------------
 
-const emails = createCollection({
+const emails = collect({
     ada: { profile: { email: "ada@example.com", score: 10 } },
     grace: { profile: { email: "grace@example.com", score: 20 } },
 }).pluck("profile.email")
@@ -216,7 +203,7 @@ type _KeyBy = Expect<Equal<ReturnType<typeof keyed.keys>[number], "Canvas" | "Se
 
 const grouped = slides.groupBy("meta.enabled")
 type _GroupBy = Expect<Equal<ReturnType<typeof grouped.keys>[number], boolean>>
-type _GroupValue = Expect<Extends<ReturnType<typeof grouped.items>[number], Collection<"canvas" | "security" | "map", CollectionItems<SlidesDefinition>>>>
+type _GroupValue = Expect<Extends<ReturnType<typeof grouped.items>[number], Collection<"canvas" | "security" | "map", Slide>>>
 
 const counted = slides.countBy("meta.enabled")
 type _CountBy = Expect<Equal<ReturnType<typeof counted.keys>[number], boolean>>
@@ -246,7 +233,7 @@ type _WithValues = Expect<Equal<ReturnType<typeof extended.items>[number], numbe
 
 const appended = slides.append("end" as const)
 type _AppendKeys = Expect<Equal<ReturnType<typeof appended.keys>[number], "canvas" | "security" | "map" | number>>
-type _AppendValues = Expect<Equal<ReturnType<typeof appended.items>[number], CollectionItems<SlidesDefinition> | "end">>
+type _AppendValues = Expect<Equal<ReturnType<typeof appended.items>[number], Slide | "end">>
 
 const zipped = collect([1, 2] as const).zip(["a", "b"])
 type _Zip = Expect<Equal<ReturnType<typeof zipped.items>[number], readonly [1 | 2 | undefined, string | undefined]>>
@@ -255,8 +242,8 @@ const crossed = collect([1, 2] as const).crossJoin(["a", "b"])
 type _CrossJoin = Expect<Equal<ReturnType<typeof crossed.items>[number], readonly [1 | 2, string]>>
 
 const partitioned = slides.partition((slide) => slide.meta.enabled)
-type _PartitionFirst = Expect<Equal<typeof partitioned[0], Collection<"canvas" | "security" | "map", CollectionItems<SlidesDefinition>>>>
-type _PartitionSecond = Expect<Equal<typeof partitioned[1], Collection<"canvas" | "security" | "map", CollectionItems<SlidesDefinition>>>>
+type _PartitionFirst = Expect<Equal<typeof partitioned[0], Collection<"canvas" | "security" | "map", Slide>>>
+type _PartitionSecond = Expect<Equal<typeof partitioned[1], Collection<"canvas" | "security" | "map", Slide>>>
 
 // ---------------------------------------------------------------------------
 // aggregate return types
@@ -279,11 +266,8 @@ type _PipeResult = Expect<Equal<typeof piped, number>>
 // expected compile-time failures
 // ---------------------------------------------------------------------------
 
-// @ts-expect-error invalid direct collection key
-slides.unknown
-
-// @ts-expect-error runtime method collisions are not exposed as direct items
-slides.map.title
+// @ts-expect-error object keys are not Collection instance properties
+slides.canvas
 
 // @ts-expect-error invalid nested path
 slides.pluck("meta.missing")
@@ -306,20 +290,17 @@ slides.where("meta.enabled", "yes")
 // @ts-expect-error whereIn values must match the resolved nested path type
 slides.whereIn("meta.score", ["high"])
 
-// @ts-expect-error get only accepts known literal definition keys
+// @ts-expect-error get only accepts known literal object keys
 slides.get("missing")
-
-// @ts-expect-error createCollection definitions must contain object items
-createCollection({ invalid: 1 })
 
 // @ts-expect-error collect does not accept arbitrary primitive strings as collection sources
 collect("abc")
 
 // ---------------------------------------------------------------------------
-// numeric definition keys and recursive paths
+// numeric object keys and recursive paths
 // ---------------------------------------------------------------------------
 
-const numericDefinitions = createCollection({
+const numericDefinitions = collect({
     1: { label: "One" },
     42: { label: "Forty two" },
 })
@@ -327,7 +308,7 @@ type _NumericDefinitionKeys = Expect<Equal<
     ReturnType<typeof numericDefinitions.keys>[number],
     "1" | "42"
 >>
-type _NumericDefinitionId = Expect<Equal<typeof numericDefinitions["1"]["id"], "1">>
+type _NumericDefinitionLabel = Expect<Equal<ReturnType<typeof numericDefinitions.toObject>["1"]["label"], "One">>
 // @ts-expect-error numeric source keys are normalized to their JavaScript string form
 numericDefinitions.get(1)
 

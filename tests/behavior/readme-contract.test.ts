@@ -37,16 +37,17 @@ function sectionFor(document: string, heading: string): string {
 }
 
 describe("documentation contract", () => {
-    test("keeps the README concise and explains the two collection factories", async () => {
+    test("keeps the README concise and explains the unified collection model", async () => {
         const readme = await readText("../../README.md")
         const lineCount = readme.split("\n").length
 
         expect(lineCount).toBeLessThan(800)
-        expect(readme).toContain("## `collect()` vs `createCollection()`")
-        expect(readme).toContain("### Choose `collect()` for runtime data")
-        expect(readme).toContain("### Choose `createCollection()` for definitions")
-        expect(readme).toContain("### Direct access exists only on the definition root")
-        expect(readme).toContain("### Method-name collisions stay safe")
+        expect(readme).toContain("## One factory, one model")
+        expect(readme).toContain("### Object records are data, not definitions")
+        expect(readme).toContain("### Collection keys never become Collection properties")
+        expect(readme).toContain("### Literal object typing is preserved")
+        expect(readme).toContain("Object input follows `Object.entries()`")
+        expect(readme).not.toContain("createCollection")
         expect(readme).toContain("docs/api.md")
         expect(readme).toContain("## Common workflows")
         expect(readme).toContain("## API at a glance")

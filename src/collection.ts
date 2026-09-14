@@ -22,6 +22,18 @@ type CollectionConstructor<TArgs extends readonly unknown[], TInstance> =
 /** Runtime class shape used by instanceof-based narrowing. */
 type CollectionClass<TInstance> = abstract new (...args: any[]) => TInstance
 
+/** Resolves collection keys to JavaScript object property keys. */
+type CollectionObjectKey<TKey> = TKey extends string | symbol
+    ? TKey
+    : TKey extends number
+        ? `${TKey}`
+        : never
+
+/** Object shape produced by `toObject()` for a collection key/value pair. */
+type CollectionObject<TKey, TValue> = {
+    [TProperty in CollectionObjectKey<TKey>]: TValue
+}
+
 /**
  * Immutable, fluent, strongly typed collection.
  *
@@ -39,8 +51,11 @@ type CollectionClass<TInstance> = abstract new (...args: any[]) => TInstance
  * enabled.each((user) => console.log(user.name))
  * ```
  */
-export class Collection<TKey, TValue>
-implements Iterable<[TKey, TValue]> {
+export class Collection<
+    TKey,
+    TValue,
+    TObject extends object = CollectionObject<TKey, TValue>,
+> implements Iterable<[TKey, TValue]> {
     /** Internal immutable collection storage. */
     readonly #store: ReadonlyMap<TKey, TValue>
 
@@ -106,7 +121,7 @@ implements Iterable<[TKey, TValue]> {
      *
      * Keys must be valid JavaScript property keys at runtime.
      */
-    public toObject(): Record<PropertyKey, TValue> {
+    public toObject(): TObject {
         const object = Object.create(null) as Record<PropertyKey, TValue>
 
         for (const [key, value] of this.#store) {
@@ -130,12 +145,18 @@ implements Iterable<[TKey, TValue]> {
             object[propertyKey] = value
         }
 
-        return object
+        return object as TObject
     }
 
     /** Returns the value associated with a collection key. */
-    public get(key: TKey): TValue | undefined {
-        return this.#store.get(key)
+    public get<TRequestedKey extends TKey>(
+        key: TRequestedKey,
+    ): TRequestedKey extends keyof TObject
+        ? TObject[TRequestedKey] | undefined
+        : TValue | undefined {
+        return this.#store.get(key) as TRequestedKey extends keyof TObject
+            ? TObject[TRequestedKey] | undefined
+            : TValue | undefined
     }
 
     /**
@@ -484,7 +505,8 @@ implements Iterable<[TKey, TValue]> {
             TKey,
             Collection<TNestedKey, TNestedValue>
             | ReadonlyMap<TNestedKey, TNestedValue>
-            | Iterable<readonly [TNestedKey, TNestedValue]>
+            | Iterable<readonly [TNestedKey, TNestedValue]>,
+            any
         >,
     ): Collection<TNestedKey, TNestedValue> {
         const result = new Map<TNestedKey, TNestedValue>()
@@ -565,7 +587,7 @@ implements Iterable<[TKey, TValue]> {
 
     /** Maps tuple-like values by spreading each tuple and appending its source key. */
     public mapSpread<TChunk extends readonly unknown[], TMapped>(
-        this: Collection<TKey, TChunk>,
+        this: Collection<TKey, TChunk, any>,
         callback: (...args: [...TChunk, TKey]) => TMapped,
     ): Collection<TKey, TMapped> {
         return this.map((value, key) => callback(...value, key))
@@ -1666,7 +1688,7 @@ implements Iterable<[TKey, TValue]> {
 
     /** Executes a callback for tuple-like values by spreading the tuple and source key. */
     public eachSpread<TChunk extends readonly unknown[]>(
-        this: Collection<TKey, TChunk>,
+        this: Collection<TKey, TChunk, any>,
         callback: (...args: [...TChunk, TKey]) => void | boolean,
     ): Collection<TKey, TChunk> {
         for (const [key, value] of this.#store) {
@@ -1690,7 +1712,7 @@ implements Iterable<[TKey, TValue]> {
 
     /** Constructs a class instance with this collection as its constructor argument. */
     public pipeInto<TInstance>(
-        constructor: CollectionConstructor<readonly [Collection<TKey, TValue>], TInstance>,
+        constructor: CollectionConstructor<readonly [this], TInstance>,
     ): TInstance {
         return new constructor(this)
     }
@@ -1700,25 +1722,25 @@ implements Iterable<[TKey, TValue]> {
 
     /** Pipes through one callback with inferred output. */
     public pipeThrough<T1>(callbacks: readonly [
-        (value: Collection<TKey, TValue>) => T1,
+        (value: this) => T1,
     ]): T1
 
     /** Pipes through two callbacks with inferred output. */
     public pipeThrough<T1, T2>(callbacks: readonly [
-        (value: Collection<TKey, TValue>) => T1,
+        (value: this) => T1,
         (value: T1) => T2,
     ]): T2
 
     /** Pipes through three callbacks with inferred output. */
     public pipeThrough<T1, T2, T3>(callbacks: readonly [
-        (value: Collection<TKey, TValue>) => T1,
+        (value: this) => T1,
         (value: T1) => T2,
         (value: T2) => T3,
     ]): T3
 
     /** Pipes through four callbacks with inferred output. */
     public pipeThrough<T1, T2, T3, T4>(callbacks: readonly [
-        (value: Collection<TKey, TValue>) => T1,
+        (value: this) => T1,
         (value: T1) => T2,
         (value: T2) => T3,
         (value: T3) => T4,
@@ -1726,7 +1748,7 @@ implements Iterable<[TKey, TValue]> {
 
     /** Pipes through five callbacks with inferred output. */
     public pipeThrough<T1, T2, T3, T4, T5>(callbacks: readonly [
-        (value: Collection<TKey, TValue>) => T1,
+        (value: this) => T1,
         (value: T1) => T2,
         (value: T2) => T3,
         (value: T3) => T4,
@@ -1752,7 +1774,7 @@ implements Iterable<[TKey, TValue]> {
     public when(
         condition: boolean,
         callback: (collection: this) => Collection<TKey, TValue>,
-    ): Collection<TKey, TValue> {
+    ): Collection<TKey, TValue> | this {
         return condition ? callback(this) : this
     }
 
@@ -1760,7 +1782,7 @@ implements Iterable<[TKey, TValue]> {
     public unless(
         condition: boolean,
         callback: (collection: this) => Collection<TKey, TValue>,
-    ): Collection<TKey, TValue> {
+    ): Collection<TKey, TValue> | this {
         return condition ? this : callback(this)
     }
 
@@ -1769,7 +1791,7 @@ implements Iterable<[TKey, TValue]> {
     public whenEmpty(
         callback: (collection: this) => Collection<TKey, TValue>,
         fallback?: (collection: this) => Collection<TKey, TValue>,
-    ): Collection<TKey, TValue> {
+    ): Collection<TKey, TValue> | this {
         if (this.empty()) return callback(this)
         return fallback ? fallback(this) : this
     }
@@ -1778,7 +1800,7 @@ implements Iterable<[TKey, TValue]> {
     public whenNotEmpty(
         callback: (collection: this) => Collection<TKey, TValue>,
         fallback?: (collection: this) => Collection<TKey, TValue>,
-    ): Collection<TKey, TValue> {
+    ): Collection<TKey, TValue> | this {
         if (this.notEmpty()) return callback(this)
         return fallback ? fallback(this) : this
     }
@@ -1787,7 +1809,7 @@ implements Iterable<[TKey, TValue]> {
     public unlessEmpty(
         callback: (collection: this) => Collection<TKey, TValue>,
         fallback?: (collection: this) => Collection<TKey, TValue>,
-    ): Collection<TKey, TValue> {
+    ): Collection<TKey, TValue> | this {
         return this.whenNotEmpty(callback, fallback)
     }
 
@@ -1795,7 +1817,7 @@ implements Iterable<[TKey, TValue]> {
     public unlessNotEmpty(
         callback: (collection: this) => Collection<TKey, TValue>,
         fallback?: (collection: this) => Collection<TKey, TValue>,
-    ): Collection<TKey, TValue> {
+    ): Collection<TKey, TValue> | this {
         return this.whenEmpty(callback, fallback)
     }
 
@@ -2002,7 +2024,7 @@ implements Iterable<[TKey, TValue]> {
 
     /** Expands dot-notation keys into nested object values. */
     public undot(
-        this: Collection<TKey, TValue>,
+        this: Collection<TKey, TValue, any>,
     ): Collection<string, unknown> {
         const root = new Map<string, unknown>()
 
