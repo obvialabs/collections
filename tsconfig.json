@@ -24,6 +24,6 @@
     "src/**/*.ts",
     "tsdown.config.ts",
     "benchmarks/**/*.ts",
-    "tests/**/*.ts"
+    "tests/types/**/*.ts"
   ]
 }

@@ -6,7 +6,7 @@ All notable changes to `@obvia/collections` are documented in this file.
 
 - Replaced the custom `Bun.build()` script with `tsdown` 0.23 for a library-focused build pipeline that emits ESM, CommonJS, declaration files, declaration/source maps, and an unbundled module structure while preserving public JSDoc/docblocks.
 - Moved compile-time-only contracts to `tests/types/*.types.ts` so Bun never executes intentional `@ts-expect-error` expressions such as rejected `collect()` inputs during runtime test discovery.
-- Consolidated source, build configuration, benchmarks, runtime tests, and compile-time contracts under one `tsconfig.json`; removed `tsconfig.types.json` / `test:types` and added `@types/bun` for Bun-native project typing.
+- Consolidated source, build configuration, benchmarks, and compile-time contracts under one `tsconfig.json`; runtime `*.test.ts` files are intentionally owned by `bun test` instead of TypeScript matcher checking, while `tests/types/*.types.ts` remains part of no-emit type verification. Removed `tsconfig.types.json` / `test:types` and added `@types/bun` for Bun-native project typing.
 - Decoupled runtime tests and benchmarks from build artifacts by routing them through the package-internal `#collections` source alias, so `bun:test`, coverage, and benchmarks run directly against `src` without a prerequisite build.
 - Upgraded static verification to TypeScript 7.0.2, which is retained only as a no-emit type checker for source and compile-time contracts rather than as the package build pipeline.
 - Optimized allocation-heavy transforms by building owned result maps in one pass for `map()`, `filter()`, key-mapping operations, `groupBy()`, and `countBy()` while preserving defensive copies for every externally supplied `Map`.

@@ -553,7 +553,7 @@ bun run test
 bun run build
 ```
 
-`bun run typecheck` uses the single project `tsconfig.json` to validate source, the tsdown configuration, benchmarks, runtime tests, and compile-time type contracts together. Focused runtime suites are available through `test:unit`, `test:behavior`, `test:guards`, `test:contracts`, `test:properties`, and `test:performance`.
+`bun run typecheck` uses the single project `tsconfig.json` to validate source, the tsdown configuration, benchmarks, and compile-time type contracts. Runtime `*.test.ts` files are intentionally validated by `bun test`, avoiding test-runner matcher typings from becoming package type errors. Focused runtime suites are available through `test:unit`, `test:behavior`, `test:guards`, `test:contracts`, `test:properties`, and `test:performance`.
 
 ### Build architecture
 
@@ -567,7 +567,7 @@ The build is intentionally **unbundled**: the emitted module structure stays clo
 
 Tests and benchmarks still execute directly from `src`; `dist` is a publish artifact, not a prerequisite for development or correctness tests. Compile-time contract files live under `tests/types/*.types.ts`, so Bun never mistakes intentionally invalid `@ts-expect-error` examples for runtime tests.
 
-A single `tsconfig.json`, backed by `@types/bun`, type-checks source, benchmarks, runtime tests, type contracts, and the tsdown configuration. TypeScript remains the static type checker and declaration engine used by the library toolchain; it is not used to emit runtime JavaScript.
+A single `tsconfig.json`, backed by `@types/bun`, type-checks source, benchmarks, compile-time type contracts, and the tsdown configuration. Runtime tests stay under `bun:test`. TypeScript remains the static type checker and declaration engine used by the library toolchain; it is not used to emit runtime JavaScript.
 
 ## Documentation
 
