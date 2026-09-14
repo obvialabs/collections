@@ -17,6 +17,7 @@ jobs:
   test:
     name: Bun test suite
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -36,5 +37,3 @@ jobs:
       - name: Run runtime and type-contract tests
         run: bun run test
 
-      - name: Build package
-        run: bun run build

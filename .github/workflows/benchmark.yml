@@ -24,6 +24,7 @@ jobs:
   benchmark:
     name: Collection benchmark
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -37,9 +38,6 @@ jobs:
 
       - name: Install dependencies
         run: bun install
-
-      - name: Build package
-        run: bun run build
 
       - name: Record runner metadata
         run: |
