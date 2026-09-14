@@ -553,17 +553,17 @@ bun run test
 bun run build
 ```
 
-`bun run typecheck` is available as a focused source-only static check. Focused suites are available through `test:unit`, `test:behavior`, `test:guards`, `test:contracts`, `test:properties`, `test:performance`, and `test:types`.
+`bun run typecheck` uses the single project `tsconfig.json` to validate source, build scripts, benchmarks, runtime tests, and compile-time type contracts together. Focused runtime suites are available through `test:unit`, `test:behavior`, `test:guards`, `test:contracts`, `test:properties`, and `test:performance`.
 
 ### Build architecture
 
-Runtime JavaScript is produced only by Bun's native bundler. The build does not use TypeScript to emit JavaScript or declaration files:
+Runtime JavaScript is produced only by Bun's native bundler. The build configuration lives in `scripts/build.ts` and calls `Bun.build()` directly, avoiding shell-specific CLI parsing differences between Windows and Unix. TypeScript does not emit JavaScript or declaration files:
 
 ```bash
 bun run build
 ```
 
-The published `types` conditions point directly at the package's TypeScript source, while runtime `import` conditions point at Bun-built ESM in `dist`. TypeScript is retained only as a no-emit static checker for source and compile-time type contracts.
+The published `types` conditions point directly at the package's TypeScript source, while runtime `import` conditions point at Bun-built ESM in `dist`. A single `tsconfig.json`, backed by `@types/bun`, covers the complete repository; TypeScript is retained only as a no-emit static checker.
 
 ## Documentation
 

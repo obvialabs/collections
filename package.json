@@ -38,7 +38,7 @@
   ],
   "scripts": {
     "clean": "bun -e \"import { rmSync } from 'node:fs'; rmSync('dist', { recursive: true, force: true })\"",
-    "build": "bun run clean && bun build ./src/index.ts ./src/collection.ts ./src/collect.ts --root ./src --outdir ./dist --target browser --format esm --sourcemap linked --packages external",
+    "build": "bun run scripts/build.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test:unit": "bun test tests/unit",
     "test:behavior": "bun test tests/behavior",
@@ -48,8 +48,7 @@
     "test:performance": "bun test tests/performance",
     "test:runtime": "bun test tests/unit tests/behavior tests/guards tests/contracts tests/properties tests/performance",
     "test:coverage": "bun -e \"import { rmSync } from 'node:fs'; rmSync('coverage', { recursive: true, force: true })\" && bun test --coverage tests/unit tests/behavior tests/guards tests/contracts tests/properties tests/performance",
-    "test:types": "tsc -p tsconfig.types.json",
-    "test": "bun run test:runtime && bun run test:types",
+    "test": "bun run typecheck && bun run test:runtime",
     "benchmark": "bun run benchmarks/collection.bench.ts",
     "benchmark:ci": "bun run benchmarks/collection.bench.ts --profile=ci",
     "check": "bun run test",
@@ -67,12 +66,13 @@
     "typed",
     "utility"
   ],
-  "author": "Selçuk Çukur <selcukcukur@outlook.com.tr>",
+  "author": "Sel\u00e7uk \u00c7ukur <selcukcukur@outlook.com.tr>",
   "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
   "devDependencies": {
+    "@types/bun": "^1.4.2",
     "typescript": "7.0.2"
   }
 }

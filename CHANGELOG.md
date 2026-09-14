@@ -4,6 +4,8 @@ All notable changes to `@obvia/collections` are documented in this file.
 
 ## Unreleased
 
+- Replaced the shell-sensitive Bun build CLI with a typed `scripts/build.ts` using `Bun.build()`, including linked source maps and code splitting for shared multi-entrypoint implementation; this fixes Windows interpreting `linked` as an entrypoint.
+- Consolidated source, build scripts, benchmarks, runtime tests, and compile-time contracts under one `tsconfig.json`; removed `tsconfig.types.json` / `test:types` and added `@types/bun` for Bun-native project typing.
 - Switched runtime builds from TypeScript emit to Bun's native bundler, with explicit source-rooted ESM entrypoints and source maps; published `types` conditions now resolve directly to the TypeScript source instead of generated declarations.
 - Decoupled runtime tests and benchmarks from build artifacts by routing them through the package-internal `#collections` source alias, so `bun:test`, coverage, and benchmarks run directly against `src` without a prerequisite build.
 - Upgraded static verification to TypeScript 7.0.2, which is retained only as a no-emit type checker for source and compile-time contracts rather than as the package build pipeline.
