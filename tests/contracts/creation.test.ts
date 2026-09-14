@@ -276,7 +276,19 @@ describe("factory input hardening", () => {
     })
 
     test("collect rejects unsupported primitive and structured object inputs", () => {
-        for (const value of [null, 1, "entries", true, new Date()] as const) {
+        class StructuredRecord {
+            public alpha = 1
+        }
+
+        for (const value of [
+            null,
+            1,
+            "entries",
+            true,
+            new Date(),
+            /pattern/,
+            new StructuredRecord(),
+        ] as const) {
             expect(() => collect(value as never)).toThrow(TypeError)
         }
     })

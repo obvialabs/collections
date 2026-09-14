@@ -4,7 +4,7 @@ All notable changes to `@obvia/collections` are documented in this file.
 
 ## Unreleased
 
-- Hardened plain-object collection typing so numeric keys match `Object.entries()` string normalization and symbol-only properties are excluded from inferred keys.
+- Aligned object-record collection behavior with `Object.entries()`: numeric keys normalize to strings, symbol-only properties stay excluded, custom-prototype records are accepted, and structured instances remain rejected.
 - Kept legacy `Object.prototype` member names lookup-only in `createCollection()` so direct-access types match runtime collision behavior.
 - Made `median()` use the package's deterministic numeric ordering when `NaN` is present.
 - Hardened `toObject()`, `flatMap()`, `flatten()`, `pad()` and `append()` against property-key collisions, argument-spread limits and deep recursive inputs.

@@ -10,7 +10,7 @@ The collection API is immutable: operations return new `Collection` instances un
 
 ### `collect`
 
-Creates a collection from an array, readonly map, plain object, iterable of entries, existing collection or no source at all.
+Creates a collection from an array, readonly map, object record, iterable of entries, existing collection or no source at all.
 
 ```ts
 import { collect } from "@obvia/collections"
@@ -27,7 +27,7 @@ const numericKeys = collect({ 1: "one" })
 numericKeys.keys() // ["1"]
 ```
 
-Arrays use numeric keys. Maps and entry iterables preserve their original keys. Plain objects follow `Object.entries()` semantics: enumerable own string properties are collected, numeric object keys are normalized to strings, and symbol-only properties are excluded. Passing an existing `Collection` returns the same collection instance.
+Arrays use numeric keys. Maps and entry iterables preserve their original keys. Object records follow `Object.entries()` semantics: enumerable own string properties are collected, inherited and non-enumerable properties are ignored, numeric object keys are normalized to strings, and symbol-only properties are excluded. Record-like objects created with `Object.create(customPrototype)` are supported; structured instances such as `Date`, `RegExp`, and class instances are rejected. Passing an existing `Collection` returns the same collection instance.
 
 ### `createCollection`
 

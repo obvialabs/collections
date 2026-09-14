@@ -7,12 +7,23 @@ type RuntimeObjectKey<TKey> = TKey extends string
         ? `${TKey}`
         : never
 
-/** Determines whether a value is a plain object record. */
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
+/** Determines whether a value behaves like an object record. */
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
     if (value === null || typeof value !== "object") return false
 
     const prototype = Object.getPrototypeOf(value)
-    return prototype === Object.prototype || prototype === null
+
+    // Standard and null-prototype records are always valid.
+    if (prototype === Object.prototype || prototype === null) {
+        return true
+    }
+
+    // Objects created with `Object.create(customPrototype)` are still
+    // record-like: Object.entries() should expose only their enumerable own
+    // string properties. Class instances, on the other hand, own a custom
+    // constructor on their immediate prototype and are structured objects
+    // rather than collection records.
+    return !Object.prototype.hasOwnProperty.call(prototype, "constructor")
 }
 
 /** Creates an empty collection. */
@@ -33,7 +44,7 @@ export function collect<TKey, TValue>(
     value: ReadonlyMap<TKey, TValue>,
 ): Collection<TKey, TValue>
 
-/** Creates a string-keyed collection from a plain object. */
+/** Creates a string-keyed collection from an object record. */
 export function collect<const TObject extends Record<string, unknown>>(
     value: TObject,
 ): Collection<
@@ -50,7 +61,7 @@ export function collect<TKey, TValue>(
  * Creates a collection from common JavaScript data structures.
  *
  * Arrays receive numeric keys, maps and entry iterables preserve their keys,
- * plain objects preserve their enumerable own string properties, and existing
+ * object records preserve their enumerable own string properties, and existing
  * collections are returned unchanged. Unsupported runtime values throw a
  * `TypeError` rather than being silently coerced into an empty collection.
  *
@@ -93,7 +104,7 @@ export function collect(
     // Runtime primitives are not valid collection sources. In particular,
     // strings are iterable but they are not key/value entry iterables.
     if (value === null || (typeof value !== "object" && typeof value !== "function")) {
-        throw new TypeError("collect() expects an array, map, entry iterable, plain object, or Collection.")
+        throw new TypeError("collect() expects an array, map, entry iterable, object record, or Collection.")
     }
 
     // Generic iterables are treated as key/value entry iterables.
@@ -107,9 +118,9 @@ export function collect(
     }
 
     // Plain objects preserve their enumerable own string properties.
-    if (isPlainRecord(value)) {
+    if (isObjectRecord(value)) {
         return new Collection(Object.entries(value))
     }
 
-    throw new TypeError("collect() expects an array, map, entry iterable, plain object, or Collection.")
+    throw new TypeError("collect() expects an array, map, entry iterable, object record, or Collection.")
 }
