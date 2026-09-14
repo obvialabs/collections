@@ -11,6 +11,8 @@ type BenchmarkProfile = {
     readonly targetSortItems: number
 }
 
+type ThroughputUnit = "items" | "lookups"
+
 type BenchmarkCase = {
     readonly id: string
     readonly category: string
@@ -20,6 +22,7 @@ type BenchmarkCase = {
     readonly baselineId?: string
     readonly headline?: boolean
     readonly targetItems?: number
+    readonly throughputUnit?: ThroughputUnit
 }
 
 type BenchmarkResult = {
@@ -34,7 +37,8 @@ type BenchmarkResult = {
     readonly minMs: number
     readonly maxMs: number
     readonly operationsPerSecond: number
-    readonly itemsPerSecond: number
+    readonly throughputPerSecond: number
+    readonly throughputUnit: ThroughputUnit
     readonly baselineId?: string
     readonly relativeToBaseline?: number
     readonly headline: boolean
@@ -236,7 +240,10 @@ function runNumberBenchmarks(size: number): void {
             category: "transform",
             name: "native filter(even)",
             size,
-            run: () => numbers.filter((value) => value % 2 === 0).length,
+            run: () => {
+                const filtered = numbers.filter((value) => value % 2 === 0)
+                return filtered.length + (filtered[0] ?? 0) + (filtered.at(-1) ?? 0)
+            },
         },
         {
             id: `numbers.filter.collection.${size}`,
@@ -245,14 +252,20 @@ function runNumberBenchmarks(size: number): void {
             size,
             baselineId: `numbers.filter.native.${size}`,
             headline: size === 1_000_000,
-            run: () => numberCollection.filter((value) => value % 2 === 0).count(),
+            run: () => {
+                const filtered = numberCollection.filter((value) => value % 2 === 0)
+                return filtered.count() + (filtered.get(1) ?? 0) + (filtered.get(size - 1) ?? 0)
+            },
         },
         {
             id: `numbers.map.native.${size}`,
             category: "transform",
             name: "native map(x2)",
             size,
-            run: () => numbers.map((value) => value * 2).length,
+            run: () => {
+                const mapped = numbers.map((value) => value * 2)
+                return mapped.length + (mapped[0] ?? 0) + (mapped.at(-1) ?? 0)
+            },
         },
         {
             id: `numbers.map.collection.${size}`,
@@ -261,7 +274,10 @@ function runNumberBenchmarks(size: number): void {
             size,
             baselineId: `numbers.map.native.${size}`,
             headline: size === 1_000_000,
-            run: () => numberCollection.map((value) => value * 2).count(),
+            run: () => {
+                const mapped = numberCollection.map((value) => value * 2)
+                return mapped.count() + (mapped.get(0) ?? 0) + (mapped.get(size - 1) ?? 0)
+            },
         },
         {
             id: `numbers.array.native.${size}`,
@@ -344,7 +360,10 @@ function runRecordBenchmarks(size: number): void {
             category: "projection",
             name: "native project(id, score)",
             size,
-            run: () => records.map((record) => ({ id: record.id, score: record.score })).length,
+            run: () => {
+                const projected = records.map((record) => ({ id: record.id, score: record.score }))
+                return projected.length + projected[0]!.score + projected.at(-1)!.score
+            },
         },
         {
             id: `records.select.collection.${size}`,
@@ -353,7 +372,10 @@ function runRecordBenchmarks(size: number): void {
             size,
             baselineId: `records.select.native.${size}`,
             headline: size === 1_000_000,
-            run: () => recordCollection.select(["id", "score"] as const).count(),
+            run: () => {
+                const projected = recordCollection.select(["id", "score"] as const)
+                return projected.count() + projected.get(0)!.score + projected.get(size - 1)!.score
+            },
         },
         {
             id: `records.pipeline.native.${size}`,
@@ -453,6 +475,7 @@ function runLookupBenchmarks(iterations: number): void {
             name: "plain object property lookup",
             size: iterations,
             targetItems: iterations,
+            throughputUnit: "lookups",
             run: () => {
                 let total = 0
                 for (let index = 0; index < iterations; index += 1) {
@@ -467,6 +490,7 @@ function runLookupBenchmarks(iterations: number): void {
             name: "Collection.get(key) lookup",
             size: iterations,
             targetItems: iterations,
+            throughputUnit: "lookups",
             baselineId: "lookup.object.property",
             run: () => {
                 let total = 0
@@ -527,7 +551,8 @@ function measure(benchmarkCase: BenchmarkCase): BenchmarkResult {
         minMs: minNs / 1_000_000,
         maxMs: maxNs / 1_000_000,
         operationsPerSecond,
-        itemsPerSecond: operationsPerSecond * benchmarkCase.size,
+        throughputPerSecond: operationsPerSecond * benchmarkCase.size,
+        throughputUnit: benchmarkCase.throughputUnit ?? "items",
         ...(benchmarkCase.baselineId === undefined ? {} : { baselineId: benchmarkCase.baselineId }),
         headline: benchmarkCase.headline ?? false,
     }
@@ -565,7 +590,7 @@ function printResults(allResults: readonly BenchmarkResult[]): void {
         repeats: result.repetitions,
         "median ms": formatDecimal(result.medianMs),
         "p95 ms": formatDecimal(result.p95Ms),
-        "items/sec": formatRate(result.itemsPerSecond),
+        throughput: `${formatRate(result.throughputPerSecond)} ${result.throughputUnit}/sec`,
         "vs native": result.relativeToBaseline === undefined
             ? "—"
             : `${result.relativeToBaseline.toFixed(2)}x`,
@@ -578,7 +603,7 @@ function printResults(allResults: readonly BenchmarkResult[]): void {
     for (const result of million) {
         console.log(
             `${result.name}: ${formatDecimal(result.medianMs)} ms median, `
-            + `${formatRate(result.itemsPerSecond)} items/sec`,
+            + `${formatRate(result.throughputPerSecond)} ${result.throughputUnit}/sec`,
         )
     }
 }
@@ -600,11 +625,11 @@ function renderMarkdown(report: BenchmarkReport): string {
         lines.push(
             "## One-million-item headline",
             "",
-            `Fastest full one-million-item Collection workload in this run: **${fastest.name}** completed in **${formatDecimal(fastest.medianMs)} ms median** (${formatRate(fastest.itemsPerSecond)} items/sec).`,
+            `Fastest full one-million-item Collection workload in this run: **${fastest.name}** completed in **${formatDecimal(fastest.medianMs)} ms median** (${formatRate(fastest.throughputPerSecond)} ${fastest.throughputUnit}/sec).`,
             "",
             "| Collection operation | Median | p95 | Throughput | vs native |",
             "| --- | ---: | ---: | ---: | ---: |",
-            ...million.map((result) => `| ${escapeMarkdown(result.name)} | ${formatDecimal(result.medianMs)} ms | ${formatDecimal(result.p95Ms)} ms | ${formatRate(result.itemsPerSecond)} items/s | ${formatRelative(result.relativeToBaseline)} |`),
+            ...million.map((result) => `| ${escapeMarkdown(result.name)} | ${formatDecimal(result.medianMs)} ms | ${formatDecimal(result.p95Ms)} ms | ${formatRate(result.throughputPerSecond)} ${result.throughputUnit}/s | ${formatRelative(result.relativeToBaseline)} |`),
             "",
         )
     }
@@ -614,7 +639,7 @@ function renderMarkdown(report: BenchmarkReport): string {
         "",
         "| Category | Benchmark | Items | Median | p95 | Throughput | vs native |",
         "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
-        ...report.results.map((result) => `| ${result.category} | ${escapeMarkdown(result.name)} | ${formatInteger(result.size)} | ${formatDecimal(result.medianMs)} ms | ${formatDecimal(result.p95Ms)} ms | ${formatRate(result.itemsPerSecond)} items/s | ${formatRelative(result.relativeToBaseline)} |`),
+        ...report.results.map((result) => `| ${result.category} | ${escapeMarkdown(result.name)} | ${formatInteger(result.size)} | ${formatDecimal(result.medianMs)} ms | ${formatDecimal(result.p95Ms)} ms | ${formatRate(result.throughputPerSecond)} ${result.throughputUnit}/s | ${formatRelative(result.relativeToBaseline)} |`),
         "",
         "## Methodology",
         "",
@@ -624,6 +649,8 @@ function renderMarkdown(report: BenchmarkReport): string {
         "- Synchronous garbage collection runs before each measured sample, never inside the timed region.",
         "- Input arrays and Collections are prepared outside the timed region except explicit construction benchmarks.",
         "- Native JavaScript baselines use the same source data and equivalent semantics where a meaningful comparison exists.",
+        "- Transform benchmarks consume representative output values, not only result lengths, so the measured work cannot collapse into a trivial length-only path.",
+        "- Sequential workloads report items/sec; lookup workloads report actual lookups/sec.",
         "- Median is the primary number; p95 is included to expose runner variance.",
         "",
     )
