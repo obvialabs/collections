@@ -35,6 +35,23 @@ type CollectionObject<TKey, TValue> = {
 }
 
 /**
+ * Tracks maps created exclusively for a new Collection instance.
+ *
+ * Public constructor inputs are always defensively copied. Internal transforms
+ * can hand off a freshly-created Map without copying it a second time. The
+ * WeakSet marker is consumed immediately by the constructor, so externally
+ * supplied Maps can never bypass the defensive-copy contract.
+ */
+const ownedCollectionStores = new WeakSet<object>()
+
+function collectionFromOwnedMap<TKey, TValue>(
+    store: Map<TKey, TValue>,
+): Collection<TKey, TValue> {
+    ownedCollectionStores.add(store)
+    return new Collection(store)
+}
+
+/**
  * Immutable, fluent, strongly typed collection.
  *
  * Keys are preserved across transformations whenever the operation does not
@@ -66,8 +83,15 @@ export class Collection<
      * - `entries` – Iterable containing collection key/value tuples
      */
     public constructor(entries: Iterable<readonly [TKey, TValue]> = []) {
-        // Copy the source entries so later changes to the input cannot mutate
-        // the collection instance.
+        // Public inputs are defensively copied so later source mutations cannot
+        // affect this collection. Internal transforms may transfer ownership of
+        // a fresh Map and avoid an otherwise redundant second full copy.
+        if (entries instanceof Map && ownedCollectionStores.has(entries)) {
+            ownedCollectionStores.delete(entries)
+            this.#store = entries
+            return
+        }
+
         this.#store = new Map(entries)
     }
 
@@ -532,13 +556,13 @@ export class Collection<
     public map<TMapped>(
         callback: (value: TValue, key: TKey, collection: this) => TMapped,
     ): Collection<TKey, TMapped> {
-        const entries: Array<readonly [TKey, TMapped]> = []
+        const result = new Map<TKey, TMapped>()
 
         for (const [key, value] of this.#store) {
-            entries.push([key, callback(value, key, this)])
+            result.set(key, callback(value, key, this))
         }
 
-        return new Collection(entries)
+        return collectionFromOwnedMap(result)
     }
 
     /** Maps every value while preserving the original collection keys. */
@@ -552,13 +576,13 @@ export class Collection<
     public mapKeys<TMappedKey>(
         callback: (value: TValue, key: TKey, collection: this) => TMappedKey,
     ): Collection<TMappedKey, TValue> {
-        const entries: Array<readonly [TMappedKey, TValue]> = []
+        const result = new Map<TMappedKey, TValue>()
 
         for (const [key, value] of this.#store) {
-            entries.push([callback(value, key, this), value])
+            result.set(callback(value, key, this), value)
         }
 
-        return new Collection(entries)
+        return collectionFromOwnedMap(result)
     }
 
     /** Maps every entry into a new key/value tuple. */
@@ -569,13 +593,14 @@ export class Collection<
             collection: this,
         ) => readonly [TMappedKey, TMappedValue],
     ): Collection<TMappedKey, TMappedValue> {
-        const entries: Array<readonly [TMappedKey, TMappedValue]> = []
+        const result = new Map<TMappedKey, TMappedValue>()
 
         for (const [key, value] of this.#store) {
-            entries.push(callback(value, key, this))
+            const [mappedKey, mappedValue] = callback(value, key, this)
+            result.set(mappedKey, mappedValue)
         }
 
-        return new Collection(entries)
+        return collectionFromOwnedMap(result)
     }
 
     /** Maps each item into a new class instance. */
@@ -597,21 +622,27 @@ export class Collection<
     public mapToGroups<TGroupKey, TMapped>(
         callback: (value: TValue, key: TKey) => readonly [TGroupKey, TMapped],
     ): Collection<TGroupKey, Collection<number, TMapped>> {
-        const groups = new Map<TGroupKey, TMapped[]>()
+        const groups = new Map<TGroupKey, Map<number, TMapped>>()
 
         for (const [key, value] of this.#store) {
             const [groupKey, mapped] = callback(value, key)
-            const group = groups.get(groupKey) ?? []
-            group.push(mapped)
-            groups.set(groupKey, group)
+            let group = groups.get(groupKey)
+
+            if (!group) {
+                group = new Map<number, TMapped>()
+                groups.set(groupKey, group)
+            }
+
+            group.set(group.size, mapped)
         }
 
-        return new Collection(
-            [...groups].map(([groupKey, values]) => [
-                groupKey,
-                new Collection(values.map((value, index) => [index, value] as const)),
-            ] as const),
-        )
+        const result = new Map<TGroupKey, Collection<number, TMapped>>()
+
+        for (const [groupKey, group] of groups) {
+            result.set(groupKey, collectionFromOwnedMap(group))
+        }
+
+        return collectionFromOwnedMap(result)
     }
 
     /** Filters collection values using a type guard predicate. */
@@ -639,15 +670,15 @@ export class Collection<
             collection: this,
         ) => boolean,
     ): Collection<TKey, TValue> {
-        const entries: Array<readonly [TKey, TValue]> = []
+        const result = new Map<TKey, TValue>()
 
         for (const [key, value] of this.#store) {
             if (predicate(value, key, this)) {
-                entries.push([key, value])
+                result.set(key, value)
             }
         }
 
-        return new Collection(entries)
+        return collectionFromOwnedMap(result)
     }
 
     /** Rejects every value for which the predicate returns true. */
@@ -681,17 +712,17 @@ export class Collection<
     public keyBy<TMappedKey>(
         selector: CollectionPath<TValue> | ((value: TValue, key: TKey) => TMappedKey),
     ): Collection<TMappedKey, TValue> {
-        const entries: Array<readonly [TMappedKey, TValue]> = []
+        const result = new Map<TMappedKey, TValue>()
 
         for (const [key, value] of this.#store) {
             const mappedKey = typeof selector === "function"
                 ? selector(value, key)
                 : getPathValue(value, selector) as TMappedKey
 
-            entries.push([mappedKey, value])
+            result.set(mappedKey, value)
         }
 
-        return new Collection(entries)
+        return collectionFromOwnedMap(result)
     }
 
     /** Filters items whose nested value strictly equals the expected value. */
@@ -937,12 +968,21 @@ export class Collection<
         assertInteger(limit, "Collection take limit")
         if (limit === 0) return new Collection()
 
+        if (limit > 0) {
+            const result = new Map<TKey, TValue>()
+            let remaining = limit
+
+            for (const [key, value] of this.#store) {
+                result.set(key, value)
+                remaining -= 1
+                if (remaining === 0) break
+            }
+
+            return collectionFromOwnedMap(result)
+        }
+
         const entries = [...this.#store.entries()]
-        return new Collection(
-            limit > 0
-                ? entries.slice(0, limit)
-                : entries.slice(limit),
-        )
+        return new Collection(entries.slice(limit))
     }
 
     /** Skips a number of items from the beginning or end of the collection. */
@@ -1298,21 +1338,29 @@ export class Collection<
     public groupBy<TGroupKey>(
         selector: CollectionPath<TValue> | ((value: TValue, key: TKey) => TGroupKey),
     ): Collection<TGroupKey, Collection<TKey, TValue>> {
-        const groups = new Map<TGroupKey, Array<readonly [TKey, TValue]>>()
+        const groups = new Map<TGroupKey, Map<TKey, TValue>>()
 
         for (const [key, value] of this.#store) {
             const groupKey = typeof selector === "function"
                 ? selector(value, key)
                 : getPathValue(value, selector) as TGroupKey
-            const group = groups.get(groupKey) ?? []
+            let group = groups.get(groupKey)
 
-            group.push([key, value])
-            groups.set(groupKey, group)
+            if (!group) {
+                group = new Map<TKey, TValue>()
+                groups.set(groupKey, group)
+            }
+
+            group.set(key, value)
         }
 
-        return new Collection(
-            [...groups].map(([key, entries]) => [key, new Collection(entries)] as const),
-        )
+        const result = new Map<TGroupKey, Collection<TKey, TValue>>()
+
+        for (const [groupKey, group] of groups) {
+            result.set(groupKey, collectionFromOwnedMap(group))
+        }
+
+        return collectionFromOwnedMap(result)
     }
 
     /** Counts items grouped by a nested value path. */
@@ -1338,7 +1386,7 @@ export class Collection<
             counts.set(groupKey, (counts.get(groupKey) ?? 0) + 1)
         }
 
-        return new Collection(counts)
+        return collectionFromOwnedMap(counts)
     }
 
     /** Returns only the first item for each unique callback result. */
@@ -1823,24 +1871,35 @@ export class Collection<
 
     /** Sums numeric values resolved by a callback. */
     public sum(
-        selector: (value: TValue, key: TKey) => number = (value) => Number(value),
+        selector?: (value: TValue, key: TKey) => number,
     ): number {
-        return this.reduce(
-            (total, value, key) => total + selector(value, key),
-            0,
-        )
+        let total = 0
+
+        if (selector) {
+            for (const [key, value] of this.#store) {
+                total += selector(value, key)
+            }
+
+            return total
+        }
+
+        for (const value of this.#store.values()) {
+            total += Number(value)
+        }
+
+        return total
     }
 
     /** Returns the arithmetic average of selected numeric values. */
     public avg(
-        selector: (value: TValue, key: TKey) => number = (value) => Number(value),
+        selector?: (value: TValue, key: TKey) => number,
     ): number | undefined {
         return this.average(selector)
     }
 
     /** Returns the arithmetic average of selected numeric values. */
     public average(
-        selector: (value: TValue, key: TKey) => number = (value) => Number(value),
+        selector?: (value: TValue, key: TKey) => number,
     ): number | undefined {
         return this.empty()
             ? undefined
@@ -2079,26 +2138,41 @@ export class Collection<
     public select(
         keys: keyof TValue | readonly (keyof TValue)[],
     ): Collection<TKey, any> {
-        const selected = Array.isArray(keys) ? keys : [keys]
+        const selected = (Array.isArray(keys) ? keys : [keys]) as readonly PropertyKey[]
+        const entries: Array<readonly [TKey, Partial<TValue>]> = []
+        const firstKey = selected[0]
+        const secondKey = selected[1]
 
-        return this.map((value) => {
+        for (const [collectionKey, value] of this.#store) {
             const result: Partial<TValue> = {}
 
-            if ((typeof value !== "object" && typeof value !== "function") || value === null) {
-                return result
-            }
+            if ((typeof value === "object" || typeof value === "function") && value !== null) {
+                const source = value as Record<PropertyKey, unknown>
+                const target = result as Record<PropertyKey, unknown>
 
-            const source = value as Record<PropertyKey, unknown>
-            const target = result as Record<PropertyKey, unknown>
+                // One- and two-field projections are common hot paths. Avoid a
+                // nested iterator for them while preserving the exact same
+                // own-property semantics as the general projection path.
+                if (firstKey !== undefined && Object.prototype.hasOwnProperty.call(source, firstKey)) {
+                    target[firstKey] = source[firstKey]
+                }
 
-            for (const key of selected as readonly PropertyKey[]) {
-                if (Object.prototype.hasOwnProperty.call(source, key)) {
-                    target[key] = source[key]
+                if (secondKey !== undefined && Object.prototype.hasOwnProperty.call(source, secondKey)) {
+                    target[secondKey] = source[secondKey]
+                }
+
+                for (let index = 2; index < selected.length; index += 1) {
+                    const key = selected[index]!
+                    if (Object.prototype.hasOwnProperty.call(source, key)) {
+                        target[key] = source[key]
+                    }
                 }
             }
 
-            return result
-        })
+            entries.push([collectionKey, result])
+        }
+
+        return new Collection(entries)
     }
 
     /** Joins collection values into a string with optional final glue. */
