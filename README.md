@@ -1,12 +1,23 @@
 # @obvia/collections
 
-A strongly typed, immutable collection toolkit for TypeScript.
+[![tests](https://github.com/obvialabs/collections/actions/workflows/tests.yml/badge.svg)](https://github.com/obvialabs/collections/actions/workflows/tests.yml)
+[![coverage](https://github.com/obvialabs/collections/actions/workflows/coverage.yml/badge.svg)](https://github.com/obvialabs/collections/actions/workflows/coverage.yml)
+[![benchmark](https://github.com/obvialabs/collections/actions/workflows/benchmark.yml/badge.svg)](https://github.com/obvialabs/collections/actions/workflows/benchmark.yml)
 
-`@obvia/collections` gives arrays, object records, maps, and keyed iterables one fluent API while preserving their meaningful key and value types.
+**One factory. Immutable data flow. Precise TypeScript keys. 130+ collection operations.**
+
+`@obvia/collections` turns arrays, object records, maps, and keyed iterables into one fluent, deeply typed API without hiding key identity or mutating the source collection. It has no runtime dependencies and is designed to stay predictable from tiny configuration maps to million-item workloads.
 
 ```ts
 import { collect } from "@obvia/collections"
 ```
+
+- **One creation model** — `collect(source)` for arrays, objects, maps, iterables, and existing collections.
+- **Immutable by default** — fluent transforms create new collection membership without mutating the source.
+- **Keys stay meaningful** — object literal keys, `Map` keys, and keyed iterables remain first-class.
+- **Deep TypeScript support** — literal object shapes, nested paths, narrowing, and key-specific object output stay typed.
+- **Measured performance** — dedicated CI benchmarks exercise 10K, 100K, and 1M-item datasets against native JavaScript baselines.
+- **Zero runtime dependencies** — ESM package with declarations, source maps, and Bun-first verification.
 
 ## Installation
 
@@ -58,6 +69,25 @@ providers.toObject().github.label
 ```
 
 There is only one creation model to learn: **give `collect()` your data, work through Collection methods, and convert at the boundary when needed.**
+
+## Measured performance
+
+The benchmark suite is built to produce numbers that can be reproduced rather than marketing estimates. It uses `Bun.nanoseconds()`, warmups, multiple measured samples, median and p95 reporting, explicit GC between samples, native JavaScript baselines, and real 10K / 100K / 1M datasets. Transform benchmarks consume their output so the timed work cannot collapse into a length-only fast path.
+
+A reference GitHub Actions CI run on the 1,000,000-item profile measured:
+
+| Workload | Median | Throughput |
+| --- | ---: | ---: |
+| `Collection.contains(last)` | **1.214 ms** | **823.83M items/sec** |
+| `Collection.toArray()` | **4.884 ms** | **204.73M items/sec** |
+| `Collection.sum()` | **7.656 ms** | **130.62M items/sec** |
+| `Collection.percentage(enabled)` | **10.20 ms** | **98.05M items/sec** |
+| `Collection.countBy(group)` | **21.57 ms** | **46.36M items/sec** |
+| `filter → take → pluck → sum` | **83.77 ms** | **11.94M input items/sec** |
+
+That last row is a full fluent pipeline over a one-million-record source, not a single primitive operation. The complete benchmark report also includes native baselines, allocation-heavy transforms, ordering/grouping workloads, median/p95 variance, and machine metadata.
+
+> Performance varies by runtime, runner, dataset shape, and operation. These are measured reference results, not duration guarantees. Run `bun run benchmark:ci` to reproduce the full profile on your own machine or CI runner.
 
 ## One factory, one model
 
@@ -509,9 +539,9 @@ bun run test:coverage
 bun run benchmark
 ```
 
-The suite covers unit behavior, public contracts, negative behavior, collection invariants, native-equivalence properties, type-level contracts, and deterministic operation-count expectations. Wall-clock benchmark results are observational and are not used as correctness assertions.
+The suite covers unit behavior, public contracts, negative behavior, collection invariants, native-equivalence properties, type-level contracts, and deterministic operation-count expectations. The current Bun coverage run reports **100% functions and 100% lines** across the built package. Wall-clock benchmarks remain observational and never decide correctness.
 
-The benchmark runner uses `Bun.nanoseconds()`, warmups, repeated measured samples, median/p95 reporting, native JavaScript baselines, and explicit garbage collection between samples. The CI profile measures 10K, 100K, and **1M-item** datasets and writes both JSON and Markdown reports, so any performance number quoted from CI is a measured result rather than an estimate.
+The benchmark runner uses `Bun.nanoseconds()`, warmups, repeated measured samples, median/p95 reporting, native JavaScript baselines, explicit garbage collection between samples, output consumption for transforms, and separate throughput units for sequential work and lookup work. The CI profile measures 10K, 100K, and **1M-item** datasets and writes both JSON and Markdown reports, so quoted CI performance is traceable to an actual measured run rather than an estimate.
 
 GitHub checks are intentionally independent and appear as **`tests / collections`**, **`coverage / collections`**, and **`benchmark / collections`**. Publishing remains manual.
 

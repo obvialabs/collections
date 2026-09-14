@@ -4,6 +4,10 @@ All notable changes to `@obvia/collections` are documented in this file.
 
 ## Unreleased
 
+- Optimized allocation-heavy transforms by building owned result maps in one pass for `map()`, `filter()`, key-mapping operations, `groupBy()`, and `countBy()` while preserving defensive copies for every externally supplied `Map`.
+- Optimized positive `take()` to stop after the requested prefix instead of materializing the entire source, which directly reduces work in fluent pipelines such as `filter().take().pluck().sum()`.
+- Optimized numeric `sum()` / `average()` hot paths to iterate storage directly without an intermediate `reduce()` callback layer, and specialized common one/two-field `select()` projections.
+- Strengthened benchmarks so transform outputs are consumed, lookup throughput is reported as lookups/sec rather than items/sec, and the README now surfaces reproducible one-million-item CI measurements.
 - Fixed LCOV artifact generation by removing the `[test] coverage = false` override that suppressed CLI `--coverage`; reporter, threshold and output settings now live in one `bunfig.toml` configuration and CI verifies the generated report before upload.
 - Modernized GitHub Actions to consistent `tests / collections`, `coverage / collections`, and `benchmark / collections` checks using current checkout/artifact actions and the package-pinned Bun runtime.
 - Rebuilt benchmarks around measured 10K/100K/1M workloads with Bun high-resolution timing, warmups, median/p95 statistics, native baselines, runner metadata, and machine-readable reports.
