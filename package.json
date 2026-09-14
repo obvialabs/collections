@@ -36,9 +36,11 @@
     "dist",
     "src",
     "docs",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE"
+    "readme.md",
+    "changelog.md",
+    "contributing.md",
+    "security.md",
+    "license.md"
   ],
   "scripts": {
     "clean": "bun -e \"import { rmSync } from 'node:fs'; rmSync('dist', { recursive: true, force: true })\"",

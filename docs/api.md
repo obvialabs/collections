@@ -1,6 +1,6 @@
 # API Reference
 
-Complete API reference for `@obvia/collections`. This document is intentionally detailed; for installation, concepts, and common workflows, start with the [package README](../README.md).
+Complete API reference for `@obvia/collections`. This document is intentionally detailed; for installation, concepts, and common workflows, start with the [package README](../readme.md).
 
 The collection API is immutable: operations return new `Collection` instances unless a method explicitly returns a scalar, array, map, object, tuple, or another non-collection result.
 
