@@ -35,6 +35,7 @@ type BenchmarkResult = {
     readonly maxMs: number
     readonly operationsPerSecond: number
     readonly itemsPerSecond: number
+    readonly baselineId?: string
     readonly relativeToBaseline?: number
     readonly headline: boolean
 }
@@ -527,6 +528,7 @@ function measure(benchmarkCase: BenchmarkCase): BenchmarkResult {
         maxMs: maxNs / 1_000_000,
         operationsPerSecond,
         itemsPerSecond: operationsPerSecond * benchmarkCase.size,
+        ...(benchmarkCase.baselineId === undefined ? {} : { baselineId: benchmarkCase.baselineId }),
         headline: benchmarkCase.headline ?? false,
     }
 }
@@ -539,14 +541,12 @@ function runRepeated(benchmarkCase: BenchmarkCase, repetitions: number): void {
 
 function applyBaselines(allResults: BenchmarkResult[]): void {
     const byId = new Map(allResults.map((result) => [result.id, result] as const))
-    const cases = collectBenchmarkCases()
 
     for (let index = 0; index < allResults.length; index += 1) {
         const result = allResults[index]!
-        const benchmarkCase = cases.get(result.id)
-        if (!benchmarkCase?.baselineId) continue
+        if (!result.baselineId) continue
 
-        const baseline = byId.get(benchmarkCase.baselineId)
+        const baseline = byId.get(result.baselineId)
         if (!baseline || baseline.medianMs === 0) continue
 
         allResults[index] = {
@@ -554,20 +554,6 @@ function applyBaselines(allResults: BenchmarkResult[]): void {
             relativeToBaseline: result.medianMs / baseline.medianMs,
         }
     }
-}
-
-function collectBenchmarkCases(): Map<string, Pick<BenchmarkCase, "baselineId">> {
-    const map = new Map<string, Pick<BenchmarkCase, "baselineId">>()
-
-    for (const result of results) {
-        const marker = result.id.replace(/\.collection\./, ".native.")
-        if (marker !== result.id && results.some((candidate) => candidate.id === marker)) {
-            map.set(result.id, { baselineId: marker })
-        }
-    }
-
-    map.set("lookup.collection.get", { baselineId: "lookup.object.property" })
-    return map
 }
 
 function printResults(allResults: readonly BenchmarkResult[]): void {

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Immutable, fluent and deeply typed collections for TypeScript.",
   "type": "module",
+  "packageManager": "bun@1.4.2",
   "sideEffects": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -48,11 +49,11 @@
     "test:types": "tsc -p tsconfig.types.json --noEmit",
     "test": "bun run test:runtime && bun run test:types",
     "benchmark": "bun run build && bun run benchmarks/collection.bench.ts",
+    "benchmark:ci": "bun run build && bun run benchmarks/collection.bench.ts --profile=ci",
     "check": "bun run typecheck && bun run test",
     "prepublishOnly": "bun run check",
     "verify:package": "bun run clean && bun run build && npm pack --dry-run --ignore-scripts",
-    "prepack": "bun run clean && bun run build",
-    "benchmark:ci": "bun run build && bun run benchmarks/collection.bench.ts --profile=ci"
+    "prepack": "bun run clean && bun run build"
   },
   "keywords": [
     "collection",
@@ -71,6 +72,5 @@
   "devDependencies": {
     "typescript": "^5.8.3"
   },
-  "author": "Selçuk Çukur <selcukcukur@outlook.com.tr>",
-  "packageManager": "bun@1.4.2"
+  "author": "Selçuk Çukur <selcukcukur@outlook.com.tr>"
 }
