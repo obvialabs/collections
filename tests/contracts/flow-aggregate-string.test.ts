@@ -147,6 +147,12 @@ describe("flow, aggregate, string and iteration contracts", () => {
         expect(collect([] as number[]).median()).toBeUndefined()
     })
 
+
+    test("median uses deterministic numeric ordering when NaN is present", () => {
+        expect(collect([Number.NaN, 1, 2]).median()).toBe(2)
+        expect(collect([Number.NaN, 1, 2, 3]).median()).toBe(2.5)
+    })
+
     test("mode returns all highest-frequency values in first-seen order", () => {
         expect(collect([1, 2, 1, 2, 3]).mode()).toEqual([1, 2])
         expect(collect([Number.NaN, Number.NaN, 1]).mode().length).toBe(1)
@@ -181,4 +187,5 @@ describe("flow, aggregate, string and iteration contracts", () => {
         expect([...source]).toEqual([["a", 1], ["b", 2]])
         expect(new Map(source)).toEqual(new Map([["a", 1], ["b", 2]]))
     })
+
 })

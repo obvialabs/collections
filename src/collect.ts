@@ -1,5 +1,12 @@
 import { Collection } from "./collection.js"
 
+/** Resolves object keys to the property-key form produced by `Object.entries()`. */
+type RuntimeObjectKey<TKey> = TKey extends string
+    ? TKey
+    : TKey extends number
+        ? `${TKey}`
+        : never
+
 /** Determines whether a value is a plain object record. */
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
     if (value === null || typeof value !== "object") return false
@@ -29,7 +36,10 @@ export function collect<TKey, TValue>(
 /** Creates a string-keyed collection from a plain object. */
 export function collect<const TObject extends Record<string, unknown>>(
     value: TObject,
-): Collection<keyof TObject, TObject[keyof TObject]>
+): Collection<
+    RuntimeObjectKey<Extract<keyof TObject, string | number>>,
+    TObject[Extract<keyof TObject, string | number>]
+>
 
 /** Creates a collection from an iterable of key/value tuples. */
 export function collect<TKey, TValue>(

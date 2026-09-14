@@ -65,6 +65,19 @@ const existing = collect([1, 2, 3])
 const same = collect(existing)
 type _Existing = Expect<Equal<typeof same, typeof existing>>
 
+const numericObjectCollection = collect({
+    1: "one",
+    alpha: "alpha",
+    [Symbol("ignored")]: "symbol",
+} as const)
+type _NumericObjectKeys = Expect<Equal<
+    ReturnType<typeof numericObjectCollection.keys>[number],
+    "1" | "alpha"
+>>
+// @ts-expect-error object numeric keys are normalized to strings by Object.entries()
+numericObjectCollection.get(1)
+numericObjectCollection.get("1")
+
 // ---------------------------------------------------------------------------
 // createCollection()
 // ---------------------------------------------------------------------------
@@ -125,6 +138,16 @@ const overriddenId = createCollection({
     },
 })
 type _CanonicalId = Expect<Equal<typeof overriddenId.primary.id, "primary">>
+
+const legacyCollisionDefinitions = createCollection({
+    ["__proto__"]: { label: "Proto" },
+    __defineGetter__: { label: "Getter" },
+    safe: { label: "Safe" },
+})
+// Legacy Object.prototype members are intentionally excluded from the typed direct-item surface.
+// @ts-expect-error use get() for keys that collide with inherited runtime members
+legacyCollisionDefinitions.__defineGetter__
+type _LegacySafeDirectId = Expect<Equal<typeof legacyCollisionDefinitions.safe.id, "safe">>
 
 // ---------------------------------------------------------------------------
 // key-preserving transformations

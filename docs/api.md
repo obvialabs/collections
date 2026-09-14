@@ -22,9 +22,12 @@ const roles = collect(new Map([
     ["member", 2],
 ]))
 const object = collect({ active: true, queued: false })
+const numericKeys = collect({ 1: "one" })
+
+numericKeys.keys() // ["1"]
 ```
 
-Arrays use numeric keys. Maps and entry iterables preserve their original keys. Plain objects preserve their property names. Passing an existing `Collection` returns the same collection instance.
+Arrays use numeric keys. Maps and entry iterables preserve their original keys. Plain objects follow `Object.entries()` semantics: enumerable own string properties are collected, numeric object keys are normalized to strings, and symbol-only properties are excluded. Passing an existing `Collection` returns the same collection instance.
 
 ### `createCollection`
 
@@ -72,11 +75,13 @@ const definitions = createCollection({
     security: { label: "Security" },
     map: { label: "Map" },
     constructor: { label: "Constructor" },
+    ["__proto__"]: { label: "Prototype" },
 })
 
 definitions.security.label // "Security"
 definitions.get("map")?.label // "Map"
 definitions.get("constructor")?.label // "Constructor"
+definitions.get("__proto__")?.label // "Prototype"
 
 definitions.map((item) => item.label) // still the Collection method
 ```
@@ -1666,13 +1671,14 @@ collect([] as number[]).max() // undefined
 Returns the median selected numeric value, or `undefined` for an empty collection.
 
 
-**Behavior:** number or `undefined`. Sorts selected numeric values; even count => mean of the middle pair.
+**Behavior:** number or `undefined`. Sorts selected numeric values using the same deterministic ordering used by the collection ordering helpers; `NaN` sorts after real numbers. For an even count, returns the mean of the middle pair.
 ```ts
 median(selector?): number | undefined
 ```
 
 ```ts
 orders.median((order) => order.total)
+collect([Number.NaN, 1, 2]).median() // 2
 ```
 
 ### `mode`

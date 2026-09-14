@@ -44,6 +44,14 @@ export type CollectionItems<
     [TId in CollectionDefinitionKey<TDefinition>]: CollectionItem<TDefinition, TId>
 }[CollectionDefinitionKey<TDefinition>]
 
+/** Legacy members inherited from `Object.prototype` but absent from `keyof Object`. */
+type LegacyObjectPrototypeKey =
+    | "__defineGetter__"
+    | "__defineSetter__"
+    | "__lookupGetter__"
+    | "__lookupSetter__"
+    | "__proto__"
+
 /** Resolves keys that do not collide with the runtime collection API. */
 type DirectCollectionKey<
     TDefinition extends CollectionDefinition,
@@ -51,6 +59,7 @@ type DirectCollectionKey<
     CollectionDefinitionKey<TDefinition>,
     | keyof Collection<CollectionDefinitionKey<TDefinition>, CollectionItems<TDefinition>>
     | keyof Object
+    | LegacyObjectPrototypeKey
 >
 
 /**

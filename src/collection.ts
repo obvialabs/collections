@@ -1340,7 +1340,7 @@ implements Iterable<[TKey, TValue]> {
 
         const values = this.entries()
             .map(([key, value]) => selector(value, key))
-            .sort((left, right) => left - right)
+            .sort(compareValues)
         const middle = Math.floor(values.length / 2)
 
         return values.length % 2 === 0

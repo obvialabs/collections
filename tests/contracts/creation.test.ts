@@ -27,6 +27,22 @@ describe("collection creation contracts", () => {
         ])
     })
 
+    test("collect(object) normalizes numeric keys and excludes symbol-only properties", () => {
+        const symbol = Symbol("ignored")
+        const source = {
+            1: "one",
+            alpha: "alpha",
+            [symbol]: "symbol",
+        } as const
+        const collection = collect(source)
+
+        expect(collection.entries()).toEqual([
+            ["1", "one"],
+            ["alpha", "alpha"],
+        ])
+        expect(collection.has("1")).toBe(true)
+    })
+
     test("collect(Map) preserves key identity, insertion order and values", () => {
         const objectKey = { id: 1 }
         const symbolKey = Symbol("token")
@@ -226,6 +242,19 @@ describe("factory input hardening", () => {
         expect(collection.keys()).toEqual(["hidden"])
         expect(collection.hidden.id).toBe("hidden")
         expect(collection.hidden.label).toBe("Hidden")
+    })
+
+    test("createCollection keeps legacy Object prototype names lookup-only", () => {
+        const collection = createCollection({
+            ["__proto__"]: { title: "Proto item" },
+            __defineGetter__: { title: "Getter item" },
+            safe: { title: "Safe item" },
+        })
+
+        expect(typeof (collection as unknown as Record<string, unknown>).__defineGetter__).toBe("function")
+        expect(collection.get("__proto__")?.title).toBe("Proto item")
+        expect(collection.get("__defineGetter__")?.title).toBe("Getter item")
+        expect(collection.safe.title).toBe("Safe item")
     })
 
     test("createCollection rejects symbol definition keys rather than silently dropping them", () => {
