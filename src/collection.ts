@@ -111,7 +111,16 @@ implements Iterable<[TKey, TValue]> {
                 throw new TypeError("Collection key cannot be converted to an object property key.")
             }
 
-            object[key] = value
+            // JavaScript coerces numeric object keys to strings. Detect that
+            // normalization explicitly so collections containing both `1`
+            // and `"1"` cannot silently lose one value during conversion.
+            const propertyKey = typeof key === "number" ? String(key) : key
+
+            if (Object.prototype.hasOwnProperty.call(object, propertyKey)) {
+                throw new TypeError("Collection keys collide after object property-key normalization.")
+            }
+
+            object[propertyKey] = value
         }
 
         return object
@@ -319,7 +328,12 @@ implements Iterable<[TKey, TValue]> {
         const values: TMapped[] = []
 
         for (const [key, value] of this.#store) {
-            values.push(...callback(value, key, this))
+            // Iterate rather than spreading callback output into `push()`.
+            // Large iterables can exceed JavaScript's function-argument limit
+            // even though the collection itself can represent them safely.
+            for (const mapped of callback(value, key, this)) {
+                values.push(mapped)
+            }
         }
 
         return new Collection(values.map((value, index) => [index, value] as const))
@@ -335,25 +349,32 @@ implements Iterable<[TKey, TValue]> {
         }
 
         const output: unknown[] = []
+        const stack: Array<{ value: unknown; level: number }> = [...this.#store.values()]
+            .reverse()
+            .map((value) => ({ value, level: depth }))
 
-        const visit = (value: unknown, level: number): void => {
-            if (
-                level > 0
-                && value !== null
-                && typeof value !== "string"
-                && typeof (value as { [Symbol.iterator]?: unknown })[Symbol.iterator] === "function"
-            ) {
-                for (const nested of value as Iterable<unknown>) {
-                    visit(nested, level - 1)
+        while (stack.length > 0) {
+            const current = stack.pop()!
+            const iterable = current.value !== null
+                && typeof current.value !== "string"
+                && typeof (current.value as { [Symbol.iterator]?: unknown })[Symbol.iterator] === "function"
+
+            if (current.level > 0 && iterable) {
+                const nested = [...current.value as Iterable<unknown>]
+                const nextLevel = current.level === Number.POSITIVE_INFINITY
+                    ? Number.POSITIVE_INFINITY
+                    : current.level - 1
+
+                // Push in reverse so the explicit stack preserves the same
+                // left-to-right traversal order as recursive flattening.
+                for (let index = nested.length - 1; index >= 0; index -= 1) {
+                    stack.push({ value: nested[index], level: nextLevel })
                 }
-                return
+
+                continue
             }
 
-            output.push(value)
-        }
-
-        for (const value of this.#store.values()) {
-            visit(value, depth)
+            output.push(current.value)
         }
 
         return new Collection(output.map((value, index) => [index, value] as const))
@@ -786,14 +807,12 @@ implements Iterable<[TKey, TValue]> {
         const values: Array<TValue | TPad> = [...this.#store.values()]
         const target = Math.abs(size)
         const missing = Math.max(0, target - values.length)
+        const padding = Array<TPad>(missing).fill(value)
+        const output = size >= 0
+            ? [...values, ...padding]
+            : [...padding, ...values]
 
-        if (size >= 0) {
-            values.push(...Array<TPad>(missing).fill(value))
-        } else {
-            values.unshift(...Array<TPad>(missing).fill(value))
-        }
-
-        return new Collection(values.map((item, index) => [index, item] as const))
+        return new Collection(output.map((item, index) => [index, item] as const))
     }
 
     /** Partitions the collection into matching and rejected collections. */
@@ -824,8 +843,15 @@ implements Iterable<[TKey, TValue]> {
     public random(count?: number): TValue | Collection<number, TValue> | undefined {
         if (count === undefined) {
             if (this.empty()) return undefined
-            const index = Math.floor(Math.random() * this.count())
-            return this.items()[index]
+            const target = Math.floor(Math.random() * this.count())
+            let index = 0
+
+            for (const value of this.#store.values()) {
+                if (index === target) return value
+                index += 1
+            }
+
+            return undefined
         }
 
         assertNonNegativeInteger(count, "Collection random count")
@@ -1113,10 +1139,16 @@ implements Iterable<[TKey, TValue]> {
 
     /** Appends a value using the next numeric collection key. */
     public append<TAppend>(value: TAppend): Collection<TKey | number, TValue | TAppend> {
-        const keys = [...this.#store.keys()].filter(
-            (key): key is Extract<TKey, number> => typeof key === "number" && Number.isFinite(key),
-        )
-        const largestKey = keys.length === 0 ? undefined : Math.max(...keys)
+        let largestKey: number | undefined
+
+        for (const key of this.#store.keys()) {
+            if (typeof key !== "number" || !Number.isFinite(key)) continue
+
+            if (largestKey === undefined || key > largestKey) {
+                largestKey = key
+            }
+        }
+
         let nextKey = largestKey === undefined ? 0 : largestKey + 1
 
         // Extremely large floating-point keys can make `key + 1 === key`.

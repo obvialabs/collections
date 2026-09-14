@@ -291,3 +291,32 @@ createCollection({ invalid: 1 })
 
 // @ts-expect-error collect does not accept arbitrary primitive strings as collection sources
 collect("abc")
+
+// ---------------------------------------------------------------------------
+// numeric definition keys and recursive paths
+// ---------------------------------------------------------------------------
+
+const numericDefinitions = createCollection({
+    1: { label: "One" },
+    42: { label: "Forty two" },
+})
+type _NumericDefinitionKeys = Expect<Equal<
+    ReturnType<typeof numericDefinitions.keys>[number],
+    "1" | "42"
+>>
+type _NumericDefinitionId = Expect<Equal<typeof numericDefinitions["1"]["id"], "1">>
+// @ts-expect-error numeric source keys are normalized to their JavaScript string form
+numericDefinitions.get(1)
+
+interface RecursiveNode {
+    name: string
+    child?: RecursiveNode
+}
+
+const recursiveNodes = collect([] as RecursiveNode[])
+recursiveNodes.pluck("child.child.child.name")
+recursiveNodes.where("child.child.name", "nested")
+// The bounded path budget prevents circular type expansion while still
+// supporting practical nested models.
+// @ts-expect-error nested path inference intentionally stops after eight segments
+recursiveNodes.pluck("child.child.child.child.child.child.child.child.name")

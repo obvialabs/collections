@@ -196,3 +196,70 @@ describe("collection creation contracts", () => {
         expect(Object.prototype.hasOwnProperty.call(filtered, "canvas")).toBe(false)
     })
 })
+
+
+describe("factory input hardening", () => {
+    test("createCollection normalizes numeric object keys to runtime string ids", () => {
+        const collection = createCollection({
+            1: { label: "One" },
+            42: { label: "Forty two" },
+        })
+
+        expect(collection.keys()).toEqual(["1", "42"])
+        expect(collection.get("1")?.id).toBe("1")
+        expect(collection["42"].label).toBe("Forty two")
+    })
+
+    test("createCollection includes non-enumerable own definition keys so runtime matches keyof", () => {
+        const definition = {} as {
+            hidden: { label: string }
+        }
+
+        Object.defineProperty(definition, "hidden", {
+            value: { label: "Hidden" },
+            enumerable: false,
+            configurable: true,
+        })
+
+        const collection = createCollection(definition)
+
+        expect(collection.keys()).toEqual(["hidden"])
+        expect(collection.hidden.id).toBe("hidden")
+        expect(collection.hidden.label).toBe("Hidden")
+    })
+
+    test("createCollection rejects symbol definition keys rather than silently dropping them", () => {
+        const symbol = Symbol("definition")
+        const definition = {
+            visible: { label: "Visible" },
+            [symbol]: { label: "Symbol" },
+        }
+
+        expect(() => createCollection(definition)).toThrow(TypeError)
+    })
+
+    test("createCollection rejects class instances as definition roots", () => {
+        class Definitions {
+            public alpha = { label: "Alpha" }
+        }
+
+        expect(() => createCollection(new Definitions())).toThrow(TypeError)
+    })
+
+    test("collect rejects unsupported primitive and structured object inputs", () => {
+        for (const value of [null, 1, "entries", true, new Date()] as const) {
+            expect(() => collect(value as never)).toThrow(TypeError)
+        }
+    })
+
+    test("collect accepts null-prototype plain records", () => {
+        const source = Object.create(null) as Record<string, number>
+        source.alpha = 1
+        source.beta = 2
+
+        expect(collect(source).entries()).toEqual([
+            ["alpha", 1],
+            ["beta", 2],
+        ])
+    })
+})

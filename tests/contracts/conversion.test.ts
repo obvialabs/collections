@@ -118,3 +118,28 @@ describe("state, snapshots and conversion contracts", () => {
         expect(collection.first()).toBe(value)
     })
 })
+
+
+describe("object conversion collision safety", () => {
+    test("toObject rejects keys that collapse to the same JavaScript property key", () => {
+        const collection = new Collection<PropertyKey, string>([
+            [1, "number"],
+            ["1", "string"],
+        ])
+
+        expect(() => collection.toObject()).toThrow(TypeError)
+    })
+
+    test("toObject keeps distinct symbols separate from their descriptions", () => {
+        const first = Symbol("same")
+        const second = Symbol("same")
+        const object = new Collection<PropertyKey, number>([
+            [first, 1],
+            [second, 2],
+        ]).toObject()
+
+        expect(object[first]).toBe(1)
+        expect(object[second]).toBe(2)
+        expect(Reflect.ownKeys(object)).toEqual([first, second])
+    })
+})

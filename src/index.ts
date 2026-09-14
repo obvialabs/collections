@@ -15,6 +15,7 @@ export type {
 export {
     createCollection,
     type CollectionDefinition,
+    type CollectionDefinitionKey,
     type CollectionItem,
     type CollectionItems,
     type DefinedCollection,

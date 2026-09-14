@@ -3,6 +3,27 @@ import { Collection } from "./collection.js"
 /** Represents a generic keyed collection definition. */
 export type CollectionDefinition = Record<string, object>
 
+/** Resolves source object keys to their JavaScript runtime property form. */
+type RuntimeDefinitionKey<TKey> = TKey extends string
+    ? TKey
+    : TKey extends number
+        ? `${TKey}`
+        : never
+
+/** Resolves every supported definition key as it exists at runtime. */
+export type CollectionDefinitionKey<
+    TDefinition extends CollectionDefinition,
+> = RuntimeDefinitionKey<Extract<keyof TDefinition, string | number>>
+
+/** Resolves the original source key represented by a runtime definition key. */
+type SourceDefinitionKey<
+    TDefinition extends CollectionDefinition,
+    TId extends CollectionDefinitionKey<TDefinition>,
+> = {
+    [TKey in Extract<keyof TDefinition, string | number>]:
+        RuntimeDefinitionKey<TKey> extends TId ? TKey : never
+}[Extract<keyof TDefinition, string | number>]
+
 /**
  * Resolves a keyed definition item and automatically injects its literal ID.
  *
@@ -11,8 +32,8 @@ export type CollectionDefinition = Record<string, object>
  */
 export type CollectionItem<
     TDefinition extends CollectionDefinition,
-    TId extends keyof TDefinition,
-> = Omit<TDefinition[TId], "id"> & {
+    TId extends CollectionDefinitionKey<TDefinition>,
+> = Omit<TDefinition[SourceDefinitionKey<TDefinition, TId>], "id"> & {
     readonly id: TId
 }
 
@@ -20,15 +41,15 @@ export type CollectionItem<
 export type CollectionItems<
     TDefinition extends CollectionDefinition,
 > = {
-    [TId in keyof TDefinition]: CollectionItem<TDefinition, TId>
-}[keyof TDefinition]
+    [TId in CollectionDefinitionKey<TDefinition>]: CollectionItem<TDefinition, TId>
+}[CollectionDefinitionKey<TDefinition>]
 
 /** Resolves keys that do not collide with the runtime collection API. */
 type DirectCollectionKey<
     TDefinition extends CollectionDefinition,
 > = Exclude<
-    keyof TDefinition,
-    | keyof Collection<keyof TDefinition, CollectionItems<TDefinition>>
+    CollectionDefinitionKey<TDefinition>,
+    | keyof Collection<CollectionDefinitionKey<TDefinition>, CollectionItems<TDefinition>>
     | keyof Object
 >
 
@@ -42,11 +63,11 @@ type DirectCollectionKey<
 export type DefinedCollection<
     TDefinition extends CollectionDefinition,
 > = Omit<
-    Collection<keyof TDefinition, CollectionItems<TDefinition>>,
+    Collection<CollectionDefinitionKey<TDefinition>, CollectionItems<TDefinition>>,
     "get"
 > & {
     /** Returns a definition item with its exact item type preserved. */
-    get<TId extends keyof TDefinition>(
+    get<TId extends CollectionDefinitionKey<TDefinition>>(
         key: TId,
     ): CollectionItem<TDefinition, TId> | undefined
 } & {
@@ -55,15 +76,24 @@ export type DefinedCollection<
         CollectionItem<TDefinition, TId>
 }
 
+/** Determines whether a value is a plain object suitable for a definition root. */
+function isPlainDefinition(value: unknown): value is Record<string, object> {
+    if (value === null || typeof value !== "object") return false
+
+    const prototype = Object.getPrototypeOf(value)
+    return prototype === Object.prototype || prototype === null
+}
+
 /**
  * Creates a strongly typed keyed collection from an object definition.
  *
  * Every definition key becomes the corresponding item's literal `id`.
- * Non-conflicting keys can also be accessed directly from the returned
- * collection instance.
+ * Numeric object-literal keys follow JavaScript semantics and are normalized
+ * to their runtime string form. Non-conflicting keys can also be accessed
+ * directly from the returned collection instance.
  *
  * **Parameters**
- * - `definition` – Object containing collection items keyed by unique IDs
+ * - `definition` – Plain object containing collection items keyed by unique IDs
  *
  * **Usage**
  * ```ts
@@ -89,20 +119,35 @@ export function createCollection<
 >(
     definition: TDefinition,
 ): DefinedCollection<TDefinition> {
-    type Key = keyof TDefinition
+    type Key = CollectionDefinitionKey<TDefinition>
     type Item = CollectionItems<TDefinition>
 
-    // Resolve every definition entry and force the object key to be the item's
-    // canonical ID even when the original definition contains an `id` field.
-    const entries = Object.entries(definition).map(
-        ([id, item]) => [
-            id as Key,
+    if (!isPlainDefinition(definition)) {
+        throw new TypeError("createCollection() expects a plain object definition.")
+    }
+
+    const ownKeys = Reflect.ownKeys(definition)
+
+    if (ownKeys.some((key) => typeof key === "symbol")) {
+        throw new TypeError("createCollection() definition keys must be strings or numeric object keys.")
+    }
+
+    // Resolve every own definition entry and force the object key to be the
+    // item's canonical ID even when the original definition contains `id`.
+    // Reflect.ownKeys keeps the runtime surface aligned with keyof even for
+    // non-enumerable own properties.
+    const entries = ownKeys.map((runtimeKey) => {
+        const id = String(runtimeKey) as Key
+        const item = definition[runtimeKey as keyof TDefinition]
+
+        return [
+            id,
             {
                 ...item,
                 id,
             } as Item,
-        ] as const,
-    )
+        ] as const
+    })
 
     // Create the immutable runtime collection used by all fluent operations.
     const collection = new Collection<Key, Item>(entries)
@@ -110,7 +155,7 @@ export function createCollection<
     // Expose safe definition keys directly without shadowing Collection
     // methods such as `map`, `filter`, `count` or inherited object members.
     for (const [key, item] of entries) {
-        if (typeof key === "string" && key in collection) {
+        if (key in collection) {
             continue
         }
 

@@ -11,22 +11,39 @@ export type AtomicValue =
     | symbol
     | undefined
 
+/** Internal recursion budget used by dot-path inference. */
+type CollectionPathDepth = readonly unknown[]
+
+/** Removes nullable branches before deciding whether a property can be traversed. */
+type TraversableValue<TValue> = Exclude<TValue, null | undefined>
+
 /**
  * Resolves valid dot-notation paths for an object value.
  *
- * Arrays and atomic values are treated as terminal values so collection
- * helpers do not infer paths through runtime objects or list internals.
+ * Arrays and atomic values are treated as terminal values. Recursive object
+ * models are supported through a bounded inference depth so self-referential
+ * application types cannot make TypeScript recurse indefinitely.
  */
-export type CollectionPath<TValue> = TValue extends AtomicValue
+export type CollectionPath<TValue> = CollectionPathInternal<TValue>
+
+type CollectionPathInternal<
+    TValue,
+    TDepth extends CollectionPathDepth = [],
+> = TDepth["length"] extends 8
     ? never
-    : TValue extends readonly unknown[]
+    : TValue extends AtomicValue
         ? never
-        : {
-            [TKey in Extract<keyof TValue, string>]:
-                TValue[TKey] extends AtomicValue | readonly unknown[]
-                    ? TKey
-                    : TKey | `${TKey}.${CollectionPath<TValue[TKey]>}`
-        }[Extract<keyof TValue, string>]
+        : TValue extends readonly unknown[]
+            ? never
+            : {
+                [TKey in Extract<keyof TValue, string>]:
+                    TraversableValue<TValue[TKey]> extends AtomicValue | readonly unknown[]
+                        ? TKey
+                        : TKey | `${TKey}.${CollectionPathInternal<
+                            TraversableValue<TValue[TKey]>,
+                            readonly [...TDepth, unknown]
+                        >}`
+            }[Extract<keyof TValue, string>]
 
 /** Resolves the value represented by a dot-notation collection path. */
 export type CollectionPathValue<

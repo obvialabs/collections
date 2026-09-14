@@ -276,4 +276,49 @@ describe("performance characteristics expressed as observable work", () => {
         expect(splitCount).toBe(source.count())
         expect(source.values().count()).toBe(source.count())
     })
+
+    test("large flatMap output does not depend on function argument spreading", () => {
+        const size = 100_000
+        const result = collect([0]).flatMap(() => range(size))
+
+        expect(result.count()).toBe(size)
+        expect(result.first()).toBe(0)
+        expect(result.last()).toBe(size - 1)
+    })
+
+    test("flatten handles deeply nested iterables without recursive call-stack growth", () => {
+        let nested: unknown = "leaf"
+
+        for (let index = 0; index < 20_000; index += 1) {
+            nested = [nested]
+        }
+
+        const result = collect([nested]).flatten()
+
+        expect(result.items()).toEqual(["leaf"])
+    })
+
+    test("append scans large numeric key sets without Math.max argument spreading", () => {
+        const size = 100_000
+        const source = collect(new Map(
+            range(size).map((key) => [key, key] as const),
+        ))
+        const result = source.append("tail")
+
+        expect(result.count()).toBe(size + 1)
+        expect(result.get(size)).toBe("tail")
+    })
+
+    test("pad supports large target sizes without push/unshift argument spreading", () => {
+        const size = 100_000
+        const right = collect([1]).pad(size, 0)
+        const left = collect([1]).pad(-size, 0)
+
+        expect(right.count()).toBe(size)
+        expect(right.first()).toBe(1)
+        expect(right.last()).toBe(0)
+        expect(left.count()).toBe(size)
+        expect(left.first()).toBe(0)
+        expect(left.last()).toBe(1)
+    })
 })
