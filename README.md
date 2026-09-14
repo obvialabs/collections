@@ -17,7 +17,7 @@ import { collect } from "@obvia/collections"
 - **Keys stay meaningful** — object literal keys, `Map` keys, and keyed iterables remain first-class.
 - **Deep TypeScript support** — literal object shapes, nested paths, narrowing, and key-specific object output stay typed.
 - **Measured performance** — dedicated CI benchmarks exercise 10K, 100K, and 1M-item datasets against native JavaScript baselines.
-- **Zero runtime dependencies** — Bun-built ESM, published TypeScript source for consumer types, source maps, and Bun-first runtime verification.
+- **Zero runtime dependencies** — dual ESM/CommonJS builds, generated declaration files, source maps, and Bun-first runtime verification.
 
 ## Installation
 
@@ -25,7 +25,7 @@ import { collect } from "@obvia/collections"
 bun add @obvia/collections
 ```
 
-The package is ESM-only, has no runtime dependencies, uses its published TypeScript source as the type surface, and ships Bun-built ESM with source maps.
+The package has no runtime dependencies and ships ESM, CommonJS, generated TypeScript declarations, and source maps. The public package entrypoints work through both `import` and `require` without making tests depend on generated `dist` files.
 
 ## Quick start
 
@@ -553,17 +553,21 @@ bun run test
 bun run build
 ```
 
-`bun run typecheck` uses the single project `tsconfig.json` to validate source, build scripts, benchmarks, runtime tests, and compile-time type contracts together. Focused runtime suites are available through `test:unit`, `test:behavior`, `test:guards`, `test:contracts`, `test:properties`, and `test:performance`.
+`bun run typecheck` uses the single project `tsconfig.json` to validate source, the tsdown configuration, benchmarks, runtime tests, and compile-time type contracts together. Focused runtime suites are available through `test:unit`, `test:behavior`, `test:guards`, `test:contracts`, `test:properties`, and `test:performance`.
 
 ### Build architecture
 
-Runtime JavaScript is produced only by Bun's native bundler. The build configuration lives in `scripts/build.ts` and calls `Bun.build()` directly, avoiding shell-specific CLI parsing differences between Windows and Unix. TypeScript does not emit JavaScript or declaration files:
+Publish artifacts are built with [tsdown](https://tsdown.dev/) using one typed `tsdown.config.ts` instead of shell-specific bundler flags:
 
 ```bash
 bun run build
 ```
 
-The published `types` conditions point directly at the package's TypeScript source, while runtime `import` conditions point at Bun-built ESM in `dist`. A single `tsconfig.json`, backed by `@types/bun`, covers the complete repository; TypeScript is retained only as a no-emit static checker.
+The build is intentionally **unbundled**: the emitted module structure stays close to `src`, tree-shaking and minification are disabled for package builds, and public JSDoc/docblocks are preserved. A build emits ESM, CommonJS, generated declaration files, JavaScript source maps, and declaration maps into `dist`.
+
+Tests and benchmarks still execute directly from `src`; `dist` is a publish artifact, not a prerequisite for development or correctness tests. Compile-time contract files live under `tests/types/*.types.ts`, so Bun never mistakes intentionally invalid `@ts-expect-error` examples for runtime tests.
+
+A single `tsconfig.json`, backed by `@types/bun`, type-checks source, benchmarks, runtime tests, type contracts, and the tsdown configuration. TypeScript remains the static type checker and declaration engine used by the library toolchain; it is not used to emit runtime JavaScript.
 
 ## Documentation
 

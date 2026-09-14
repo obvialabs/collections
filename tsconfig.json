@@ -4,8 +4,12 @@
     "module": "Preserve",
     "moduleResolution": "Bundler",
     "moduleDetection": "force",
-    "lib": ["ESNext"],
-    "types": ["bun"],
+    "lib": [
+      "ESNext"
+    ],
+    "types": [
+      "bun"
+    ],
     "strict": true,
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
@@ -18,7 +22,7 @@
   },
   "include": [
     "src/**/*.ts",
-    "scripts/**/*.ts",
+    "tsdown.config.ts",
     "benchmarks/**/*.ts",
     "tests/**/*.ts"
   ]
