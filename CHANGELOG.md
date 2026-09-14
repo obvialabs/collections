@@ -4,6 +4,8 @@ All notable changes to `@obvia/collections` are documented in this file.
 
 ## Unreleased
 
+- Modernized GitHub Actions to consistent `tests / collections`, `coverage / collections`, and `benchmark / collections` checks using current checkout/artifact actions and the package-pinned Bun runtime.
+- Rebuilt benchmarks around measured 10K/100K/1M workloads with Bun high-resolution timing, warmups, median/p95 statistics, native baselines, runner metadata, and machine-readable reports.
 - Unified collection creation around `collect()` and removed `createCollection()`, definition `id` injection, and direct Collection-key properties. Object records now use the same immutable Collection model as arrays, maps, and entry iterables.
 - Preserved literal object keys and key-specific `toObject()` value types for object sources while keeping Collection methods collision-free.
 - Added a high-value immutable collection expansion covering adjacency/cardinality queries, variable windows, keyed shaping, association-aware sets, tuple pipelines, range/class filtering, projections, dot paths and conditional flow helpers.

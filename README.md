@@ -511,7 +511,9 @@ bun run benchmark
 
 The suite covers unit behavior, public contracts, negative behavior, collection invariants, native-equivalence properties, type-level contracts, and deterministic operation-count expectations. Wall-clock benchmark results are observational and are not used as correctness assertions.
 
-GitHub Actions keep **Test**, **Coverage**, and **Benchmark** independent. Publishing remains manual.
+The benchmark runner uses `Bun.nanoseconds()`, warmups, repeated measured samples, median/p95 reporting, native JavaScript baselines, and explicit garbage collection between samples. The CI profile measures 10K, 100K, and **1M-item** datasets and writes both JSON and Markdown reports, so any performance number quoted from CI is a measured result rather than an estimate.
+
+GitHub checks are intentionally independent and appear as **`tests / collections`**, **`coverage / collections`**, and **`benchmark / collections`**. Publishing remains manual.
 
 ### Local development
 
