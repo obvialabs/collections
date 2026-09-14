@@ -104,6 +104,22 @@ for (const size of sizes) {
             },
         },
         {
+            name: "group / mapToGroups",
+            size,
+            run: () => {
+                sink += recordCollection
+                    .mapToGroups((record) => [record.group, record.id] as const)
+                    .count()
+            },
+        },
+        {
+            name: "project / select(id,score)",
+            size,
+            run: () => {
+                sink += recordCollection.select(["id", "score"] as const).count()
+            },
+        },
+        {
             name: "set / unique(selector)",
             size,
             run: () => {
@@ -118,10 +134,35 @@ for (const size of sizes) {
             },
         },
         {
+            name: "window / chunkWhile(128)",
+            size,
+            run: () => {
+                sink += recordCollection.chunkWhile((record, _key, chunk) => {
+                    const first = chunk.first()
+                    return first !== undefined
+                        && Math.floor(record.id / 128) === Math.floor(first.id / 128)
+                }).count()
+            },
+        },
+        {
             name: "ordering / sortBy(score)",
             size,
             run: () => {
                 sink += recordCollection.sortBy("score").count()
+            },
+        },
+        {
+            name: "aggregate / percentage(enabled)",
+            size,
+            run: () => {
+                sink += recordCollection.percentage((record) => record.enabled) ?? 0
+            },
+        },
+        {
+            name: "shape / dot(depth=1)",
+            size,
+            run: () => {
+                sink += recordCollection.dot(1).count()
             },
         },
         {
