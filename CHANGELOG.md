@@ -20,7 +20,7 @@ All notable changes to `@obvia/collections` are documented in this file.
 - Added independent GitHub Actions workflows for tests, LCOV coverage, and scheduled/manual benchmarks.
 - Completed behavior-contract coverage for the full existing public API without adding new collection features.
 - Added detailed creation, conversion, access, transformation, filtering, ordering, grouping, set/update, flow, aggregate, edge-case and negative-behavior tests.
-- Added property/law checks, deterministic performance-work tests, README/API documentation contracts and an expanded benchmark matrix.
+- Added property/law checks, deterministic performance-work tests, expanded README/API documentation and a broader benchmark matrix.
 - Added compile-time contracts for literal object keys, method-name collisions, nested paths, optional nested branches, narrowing and fluent return types.
 - Fixed optional nested path value inference so valid optional branches resolve to `T | undefined`.
 - Made scalar ordering deterministic for `null`, `undefined`, `NaN`, bigint, dates and string-comparable values.
