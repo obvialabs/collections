@@ -4,6 +4,12 @@ All notable changes to `@obvia/collections` are documented in this file.
 
 ## Unreleased
 
+- Hardened plain-object collection typing so numeric keys match `Object.entries()` string normalization and symbol-only properties are excluded from inferred keys.
+- Kept legacy `Object.prototype` member names lookup-only in `createCollection()` so direct-access types match runtime collision behavior.
+- Made `median()` use the package's deterministic numeric ordering when `NaN` is present.
+- Hardened `toObject()`, `flatMap()`, `flatten()`, `pad()` and `append()` against property-key collisions, argument-spread limits and deep recursive inputs.
+- Added clean prepack/package verification scripts while keeping npm publishing explicitly manual with no publish workflow.
+- Added a manual release checklist and made test/coverage/benchmark workflows bounded and less redundant.
 - Reworked the package documentation into a concise usage-focused README plus a complete published `docs/api.md` reference.
 - Added independent GitHub Actions workflows for tests, LCOV coverage, and scheduled/manual benchmarks.
 - Completed behavior-contract coverage for the full existing public API without adding new collection features.
