@@ -1,17 +1,21 @@
 import { describe, expect, test } from "bun:test"
 
 const publicMethods = [
-    "all", "append", "average", "avg", "chunk", "collapse", "contains", "count", "countBy",
-    "crossJoin", "diff", "diffKeys", "doesntContain", "duplicates", "each", "empty", "entries",
-    "every", "except", "filter", "first", "firstOrFail", "flatMap", "flatten", "get", "getOr",
-    "groupBy", "has", "hasAll", "hasAny", "implode", "intersect", "intersectByKeys", "items", "join",
-    "keyBy", "keys", "last", "lastOrFail", "map", "mapKeys", "mapValues", "mapWithKeys", "max",
-    "median", "merge", "min", "mode", "notEmpty", "nth", "only", "pad", "partition", "pipe",
-    "pluck", "prepend", "random", "reduce", "reject", "remove", "replace", "reverse", "search",
-    "shuffle", "skip", "skipUntil", "skipWhile", "slice", "sliding", "sole", "some", "sort",
-    "sortBy", "sortByDesc", "sortKeys", "sortKeysDesc", "split", "sum", "take", "takeUntil",
-    "takeWhile", "tap", "toArray", "toMap", "toObject", "union", "unique", "unless", "values",
-    "when", "where", "whereIn", "whereNot", "whereNotIn", "whereNotNull", "whereNull", "with", "zip",
+    "after", "all", "append", "average", "avg", "before", "chunk", "chunkWhile", "collapse",
+    "collapseWithKeys", "combine", "concat", "contains", "count", "countBy", "crossJoin", "diff", "diffAssoc",
+    "diffKeys", "doesntContain", "dot", "duplicates", "each", "eachSpread", "empty", "entries", "every",
+    "except", "filter", "first", "firstOrFail", "firstWhere", "flatMap", "flatten", "flip", "forPage",
+    "get", "getOr", "groupBy", "has", "hasAll", "hasAny", "hasMany", "hasSole", "implode",
+    "intersect", "intersectAssoc", "intersectByKeys", "items", "join", "keyBy", "keys", "last", "lastOrFail",
+    "map", "mapInto", "mapKeys", "mapSpread", "mapToGroups", "mapValues", "mapWithKeys", "max", "median",
+    "merge", "min", "mode", "multiply", "notEmpty", "nth", "only", "pad", "partition",
+    "percentage", "pipe", "pipeInto", "pipeThrough", "pluck", "prepend", "random", "reduce", "reduceSpread",
+    "reject", "remove", "replace", "reverse", "search", "select", "shuffle", "skip", "skipUntil",
+    "skipWhile", "slice", "sliding", "sole", "some", "sort", "sortBy", "sortByDesc", "sortDesc",
+    "sortKeys", "sortKeysDesc", "sortKeysUsing", "split", "splitIn", "sum", "take", "takeUntil", "takeWhile",
+    "tap", "toArray", "toMap", "toObject", "undot", "union", "unique", "unless", "unlessEmpty",
+    "unlessNotEmpty", "values", "when", "whenEmpty", "whenNotEmpty", "where", "whereBetween", "whereIn", "whereInstanceOf",
+    "whereNot", "whereNotBetween", "whereNotIn", "whereNotNull", "whereNull", "with", "zip",
 ] as const
 
 async function readText(path: string): Promise<string> {

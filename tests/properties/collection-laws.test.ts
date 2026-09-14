@@ -216,3 +216,74 @@ describe("collection algebra and generated-input properties", () => {
         }
     })
 })
+
+describe("high-value operation properties", () => {
+    test("splitIn then flatMap reconstructs generated inputs in order", () => {
+        const random = randomFactory(0x5A1171)
+
+        for (let index = 0; index < 200; index += 1) {
+            const values = generatedNumbers(random)
+            const groups = 1 + Math.floor(random() * 20)
+            const reconstructed = collect(values)
+                .splitIn(groups)
+                .flatMap((group) => group.items())
+                .items()
+
+            expect(reconstructed).toEqual(values)
+        }
+    })
+
+    test("multiply repeats the source sequence exactly multiplier times", () => {
+        const random = randomFactory(0xA1171)
+
+        for (let index = 0; index < 150; index += 1) {
+            const values = generatedNumbers(random, 30)
+            const multiplier = Math.floor(random() * 6)
+            const expected = Array.from({ length: multiplier }, () => values).flat()
+
+            expect(collect(values).multiply(multiplier).items()).toEqual(expected)
+        }
+    })
+
+    test("assoc intersection and difference form an ordered partition by exact key/value pair", () => {
+        const random = randomFactory(0xA550C)
+
+        for (let index = 0; index < 150; index += 1) {
+            const values = generatedNumbers(random, 30)
+            const collection = collect(new Map(values.map((value, key) => [key, value] as const)))
+            const other = new Map(collection.entries().filter(([, value]) => value >= 0))
+            const inside = collection.intersectAssoc(other)
+            const outside = collection.diffAssoc(other)
+
+            expect(inside.count() + outside.count()).toBe(collection.count())
+            expect(inside.entries()).toEqual(collection.entries().filter(([key, value]) => other.has(key) && Object.is(other.get(key), value)))
+            expect(outside.entries()).toEqual(collection.entries().filter(([key, value]) => !other.has(key) || !Object.is(other.get(key), value)))
+        }
+    })
+
+    test("safe dot paths are stable across dot -> undot -> dot", () => {
+        const source = collect({
+            user: {
+                profile: { name: "Ada", score: 42 },
+                active: true,
+            },
+            settings: { theme: "dark" },
+        })
+        const dotted = source.dot()
+
+        expect(dotted.undot().dot().entries()).toEqual(dotted.entries())
+    })
+
+    test("concat count and ordering equal the concatenation of source values", () => {
+        const random = randomFactory(0xC0A7)
+
+        for (let index = 0; index < 150; index += 1) {
+            const left = generatedNumbers(random, 30)
+            const right = generatedNumbers(random, 30)
+            const concatenated = collect(left).concat(right)
+
+            expect(concatenated.items()).toEqual([...left, ...right])
+            expect(concatenated.count()).toBe(left.length + right.length)
+        }
+    })
+})

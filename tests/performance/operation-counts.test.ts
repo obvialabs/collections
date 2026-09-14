@@ -322,3 +322,71 @@ describe("performance characteristics expressed as observable work", () => {
         expect(left.last()).toBe(1)
     })
 })
+
+describe("high-value feature work bounds", () => {
+    test("mapToGroups and percentage evaluate their callbacks exactly once per entry", () => {
+        const source = collect(range(4_000))
+        let groupCalls = 0
+        let percentageCalls = 0
+
+        source.mapToGroups((value) => {
+            groupCalls += 1
+            return [value % 8, value] as const
+        })
+        source.percentage((value) => {
+            percentageCalls += 1
+            return value % 2 === 0
+        })
+
+        expect(groupCalls).toBe(source.count())
+        expect(percentageCalls).toBe(source.count())
+    })
+
+    test("hasMany and hasSole stop after a second predicate match", () => {
+        const source = collect(range(10_000))
+        let manyCalls = 0
+        let soleCalls = 0
+
+        expect(source.hasMany((value) => {
+            manyCalls += 1
+            return value === 2 || value === 4
+        })).toBe(true)
+        expect(manyCalls).toBe(5)
+
+        expect(source.hasSole((value) => {
+            soleCalls += 1
+            return value === 2 || value === 4
+        })).toBe(false)
+        expect(soleCalls).toBe(5)
+    })
+
+    test("chunkWhile evaluates only continuation items and receives bounded current chunks", () => {
+        const source = collect(range(5_000))
+        let calls = 0
+        let maximumChunk = 0
+
+        const chunks = source.chunkWhile((value, _key, chunk) => {
+            calls += 1
+            maximumChunk = Math.max(maximumChunk, chunk.count())
+            return value % 100 !== 0
+        })
+
+        expect(calls).toBe(source.count() - 1)
+        expect(maximumChunk).toBeLessThanOrEqual(100)
+        expect(chunks.count()).toBe(50)
+    })
+
+    test("reduceSpread evaluates one reducer call per entry", () => {
+        const source = collect(range(3_000))
+        let calls = 0
+
+        const [sum, count] = source.reduceSpread((sum, count, value) => {
+            calls += 1
+            return [sum + value, count + 1]
+        }, 0, 0)
+
+        expect(calls).toBe(source.count())
+        expect(count).toBe(source.count())
+        expect(sum).toBe(source.sum())
+    })
+})

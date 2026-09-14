@@ -177,3 +177,139 @@ const definitions = createCollection({
 const transformedDefinitions = definitions.filter((item) => item.enabled)
 // @ts-expect-error direct definition properties intentionally disappear after transformation
 transformedDefinitions.canvas
+
+// High-value parity methods.
+const before = keyed.before(2)
+type _Before = Expect<Equal<typeof before, number | undefined>>
+const after = keyed.after(1)
+type _After = Expect<Equal<typeof after, number | undefined>>
+type _HasMany = Expect<Equal<ReturnType<typeof keyed.hasMany>, boolean>>
+type _HasSole = Expect<Equal<ReturnType<typeof keyed.hasSole>, boolean>>
+const chunkWhile = keyed.chunkWhile((value, _key, chunk) => value >= (chunk.last() ?? value))
+type _ChunkWhile = Expect<Equal<typeof chunkWhile, Collection<number, Collection<"a" | "b", number>>>>
+const forPage = keyed.forPage(1, 1)
+type _ForPage = Expect<Equal<typeof forPage, Collection<"a" | "b", number>>>
+const splitIn = keyed.splitIn(2)
+type _SplitIn = Expect<Equal<typeof splitIn, Collection<number, Collection<"a" | "b", number>>>>
+
+const collapsedWithKeys = collect([
+    collect(new Map<"x" | "y", number>([["x", 1], ["y", 2]])),
+]).collapseWithKeys()
+type _CollapseWithKeys = Expect<Equal<typeof collapsedWithKeys, Collection<"x" | "y", number>>>
+
+const combined = collect(["name", "age"] as const).combine(["Ada", 37] as const)
+type _Combine = Expect<Equal<typeof combined, Collection<"name" | "age", "Ada" | 37>>>
+const concatenated = keyed.concat(["x" as const])
+type _Concat = Expect<Equal<typeof concatenated, Collection<"a" | "b" | number, number | "x">>>
+const flipped = keyed.flip()
+type _Flip = Expect<Equal<typeof flipped, Collection<number, "a" | "b">>>
+const multiplied = keyed.multiply(2)
+type _Multiply = Expect<Equal<typeof multiplied, Collection<number, number>>>
+
+class NumberBox {
+    public constructor(
+        public readonly value: number,
+        public readonly key: "a" | "b",
+    ) {}
+}
+const mappedInto = keyed.mapInto(NumberBox)
+type _MapInto = Expect<Equal<typeof mappedInto, Collection<"a" | "b", NumberBox>>>
+
+const tuples = new Collection<"a" | "b", readonly [number, string]>([
+    ["a", [1, "x"]],
+    ["b", [2, "y"]],
+])
+const mappedSpread = tuples.mapSpread((number, text, key) => `${key}:${number}:${text}`)
+type _MapSpread = Expect<Equal<typeof mappedSpread, Collection<"a" | "b", string>>>
+const eachSpread = tuples.eachSpread(() => undefined)
+type _EachSpread = Expect<Equal<typeof eachSpread, Collection<"a" | "b", readonly [number, string]>>>
+
+const mappedGroups = records.mapToGroups((record) => [record.state, record.nested.label] as const)
+type _MapToGroups = Expect<Equal<
+    typeof mappedGroups,
+    Collection<"ready" | "idle", Collection<number, string | undefined>>
+>>
+
+const firstWhere = records.firstWhere("state", "ready")
+type _FirstWhere = Expect<Equal<typeof firstWhere, (typeof records extends Collection<any, infer V> ? V : never) | undefined>>
+const between = records.whereBetween("state", ["idle", "ready"])
+type _WhereBetween = Expect<Equal<typeof between, typeof records>>
+const notBetween = records.whereNotBetween("state", ["idle", "ready"])
+type _WhereNotBetween = Expect<Equal<typeof notBetween, typeof records>>
+
+class Alpha { public readonly alpha = true }
+class Beta { public readonly beta = true }
+const instances = collect<Alpha | Beta | string>([new Alpha(), new Beta(), "x"])
+const alphas = instances.whereInstanceOf(Alpha)
+type _WhereInstanceOf = Expect<Equal<typeof alphas, Collection<number, Alpha>>>
+
+const assocDiff = keyed.diffAssoc(new Map([["a", 1], ["b", 9]]))
+type _DiffAssoc = Expect<Equal<typeof assocDiff, Collection<"a" | "b", number>>>
+const assocIntersect = keyed.intersectAssoc(new Map([["a", 1], ["b", 9]]))
+type _IntersectAssoc = Expect<Equal<typeof assocIntersect, Collection<"a" | "b", number>>>
+const sortDesc = keyed.sortDesc()
+type _SortDesc = Expect<Equal<typeof sortDesc, Collection<"a" | "b", number>>>
+const sortKeysUsing = keyed.sortKeysUsing((left, right) => left.localeCompare(right))
+type _SortKeysUsing = Expect<Equal<typeof sortKeysUsing, Collection<"a" | "b", number>>>
+
+type Person = { name: string; age: number; active: boolean }
+const people = collect<Person>([
+    { name: "Ada", age: 37, active: true },
+])
+const selectedName = people.select("name")
+type _SelectOne = Expect<Equal<typeof selectedName, Collection<number, Pick<Person, "name">>>>
+const selectedMany = people.select(["name", "active"] as const)
+type _SelectMany = Expect<Equal<typeof selectedMany, Collection<number, Pick<Person, "name" | "active">>>>
+
+const dotted = collect({ user: { name: "Ada" } }).dot()
+type _Dot = Expect<Equal<typeof dotted, Collection<string, unknown>>>
+const undotted = collect(new Map([["user.name", "Ada"]])).undot()
+type _Undot = Expect<Equal<typeof undotted, Collection<string, unknown>>>
+
+class NumberSummary {
+    public constructor(public readonly collection: Collection<"a" | "b", number>) {}
+}
+const pipedInto = keyed.pipeInto(NumberSummary)
+type _PipeInto = Expect<Equal<typeof pipedInto, NumberSummary>>
+const pipedThrough = keyed.pipeThrough([
+    (collection: Collection<"a" | "b", number>) => collection.sum(),
+    (sum: number) => ({ sum }),
+    (result: { sum: number }) => result.sum.toString(),
+] as const)
+type _PipeThrough = Expect<Equal<typeof pipedThrough, string>>
+const reducedSpread = keyed.reduceSpread(
+    (sum, count, value): [number, number] => [sum + value, count + 1],
+    0,
+    0,
+)
+type _ReduceSpread = Expect<Equal<typeof reducedSpread, [number, number]>>
+
+type _Percentage = Expect<Equal<ReturnType<typeof keyed.percentage>, number | undefined>>
+const whenEmpty = keyed.whenEmpty((collection) => collection.take(1))
+type _WhenEmpty = Expect<Equal<typeof whenEmpty, Collection<"a" | "b", number>>>
+const whenNotEmpty = keyed.whenNotEmpty((collection) => collection.take(1))
+type _WhenNotEmpty = Expect<Equal<typeof whenNotEmpty, Collection<"a" | "b", number>>>
+const unlessEmpty = keyed.unlessEmpty((collection) => collection.take(1))
+type _UnlessEmpty = Expect<Equal<typeof unlessEmpty, Collection<"a" | "b", number>>>
+const unlessNotEmpty = keyed.unlessNotEmpty((collection) => collection.take(1))
+type _UnlessNotEmpty = Expect<Equal<typeof unlessNotEmpty, Collection<"a" | "b", number>>>
+
+const alphaBetas = instances.whereInstanceOf([Alpha, Beta] as const)
+type _WhereInstancesOf = Expect<Equal<typeof alphaBetas, Collection<number, Alpha | Beta>>>
+
+const readonlyReducedSpread = keyed.reduceSpread(
+    (sum, count, value) => [sum + value, count + 1] as const,
+    0 as number,
+    0 as number,
+)
+type _ReadonlyReduceSpread = Expect<Equal<typeof readonlyReducedSpread, [number, number]>>
+
+const longPipeline = keyed.pipeThrough([
+    (collection: Collection<"a" | "b", number>) => collection.sum(),
+    (value: number) => value + 1,
+    (value: number) => value + 1,
+    (value: number) => value + 1,
+    (value: number) => value + 1,
+    (value: number) => value + 1,
+] as const)
+type _LongPipeline = Expect<Equal<typeof longPipeline, unknown>>
